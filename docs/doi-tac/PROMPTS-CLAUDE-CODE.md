@@ -2,6 +2,57 @@
 
 **Repo làm việc:** `ledinhlam23032000/Trungtamdalieu` · **Repo tham chiếu chỉ đọc:** `ledinhlam23032000/ZenithTasks`
 
+## ⚡ CHẾ ĐỘ TỰ ĐỘNG — 1 prompt làm hết (dành cho chủ, không cần duyệt từng bước)
+
+Dán **PROMPT TỰ ĐỘNG** vào phiên Claude Code đầu tiên. Khi phiên dừng vì hết ngữ cảnh, mở phiên mới và dán **PROMPT TIẾP TỤC**. Lặp lại cho tới khi báo "HOÀN TẤT P6".
+
+### PROMPT TỰ ĐỘNG
+
+```
+Bạn là kỹ sư chính của repo Trungtamdalieu (app "Hồng Phúc Alliance"). Chủ sản phẩm giao bạn TỰ ĐỘNG xây toàn bộ app từ đầu đến hết, không cần chờ duyệt từng bước.
+
+1. CHUẨN BỊ
+- Nếu thư mục docs/doi-tac chưa có trên nhánh hiện tại: git fetch origin && git checkout docs/dac-ta-doi-tac.
+- Tạo (hoặc chuyển sang nếu đã có) nhánh làm việc feature/alliance từ nhánh đang chứa docs/doi-tac.
+- Nếu chưa có ../ZenithTasks: git clone --depth 1 https://github.com/ledinhlam23032000/ZenithTasks ../ZenithTasks (CHỈ ĐỌC, không sửa).
+- Đọc CLAUDE.md, docs/doi-tac/DE-XUAT-APP-DOI-TAC-CHIEN-LUOC.md, docs/doi-tac/QUYET-DINH.md, docs/doi-tac/PROMPTS-CLAUDE-CODE.md, docs/doi-tac/nguon/*.md, ảnh trong docs/doi-tac/nguon/anh/, docs/doi-tac/MOCKUP-ALLIANCE.html.
+
+2. QUY TẮC TỰ QUYẾT
+- QUYET-DINH.md ưu tiên hơn đặc tả. Mục còn "MẶC ĐỊNH" → dùng giá trị mặc định, làm thành cấu hình chỉnh được, ghi vào nhật ký. KHÔNG dừng lại hỏi.
+- Chỉ dừng hỏi chủ khi gặp việc không thể đảo ngược hoặc cần thông tin chỉ chủ có (mật khẩu thật, tài khoản ngân hàng thật, tên miền). Mọi câu hỏi khác: tự chọn phương án an toàn hơn, ghi vào mục "Câu hỏi cho chủ" trong KE-HOACH-THI-CONG.md rồi làm tiếp.
+- Tuân thủ tuyệt đối "Luật không được vi phạm" trong CLAUDE.md.
+
+3. TRÌNH TỰ — làm lần lượt, mỗi giai đoạn theo đúng nội dung prompt tương ứng trong PROMPTS-CLAUDE-CODE.md:
+  Prompt 0 (tạo KE-HOACH-THI-CONG.md, tự duyệt, không chờ chủ) → P0a → P0b → P1 → P2 → P3 → P4 → P5 → P6.
+  Bỏ qua mọi câu "DỪNG chờ tôi duyệt" và "tạo nhánh riêng" trong các prompt đó: tất cả làm trên nhánh feature/alliance.
+
+4. SAU MỖI GIAI ĐOẠN (bắt buộc, trước khi sang giai đoạn kế):
+- Chạy npx tsc --noEmit và npx vitest run; sửa đến khi xanh, gồm toàn bộ test số vàng của giai đoạn.
+- Tự chạy Prompt R (rà soát) với chính code vừa viết; sửa hết lỗi HIGH và MEDIUM.
+- Cập nhật CHANGELOG.md; ghi bàn giao vào cuối KE-HOACH-THI-CONG.md theo mẫu: "[Pxx] HOÀN TẤT | đã làm | test | quyết định tự chọn | việc dở | bước kế tiếp".
+- Commit (commit message tiếng Việt) và git push origin feature/alliance.
+- Sau lần push đầu tiên: mở Pull Request nháp (draft) từ feature/alliance vào main, tiêu đề "Hồng Phúc Alliance — thi công tự động". Các lần sau chỉ push thêm vào nhánh đó. KHÔNG merge vào main.
+
+5. KHI SẮP HẾT NGỮ CẢNH
+- Hoàn thành hoặc commit phần đang làm dở ở trạng thái build được, ghi bàn giao ghi rõ đang ở giai đoạn nào/bước nào, push, rồi báo: "DỪNG Ở [Pxx] — mở phiên mới và dán PROMPT TIẾP TỤC".
+
+6. KHI XONG P6
+- Chạy toàn bộ test, Prompt R lần cuối cho cả app, cập nhật README (cách chạy bằng Docker, tài khoản mẫu từng vai trò lấy mật khẩu từ DEMO_PASSWORD), push, chuyển PR khỏi trạng thái nháp.
+- Báo cáo cho chủ bằng tiếng Việt, ≤ 20 dòng: đã xây gì, cách mở app, danh sách quyết định đã tự chọn, câu hỏi còn chờ chủ. Kết thúc bằng dòng "HOÀN TẤT P6".
+
+Bắt đầu ngay.
+```
+
+### PROMPT TIẾP TỤC
+
+```
+Tiếp tục thi công tự động Hồng Phúc Alliance. git fetch origin && git checkout feature/alliance && git pull. Nếu chưa có ../ZenithTasks thì clone --depth 1 (chỉ đọc). Đọc CLAUDE.md, mục "Nhật ký bàn giao" cuối docs/doi-tac/KE-HOACH-THI-CONG.md, và phần "PROMPT TỰ ĐỘNG" trong docs/doi-tac/PROMPTS-CLAUDE-CODE.md. Làm tiếp từ đúng chỗ bàn giao ghi lại, theo đúng mọi quy tắc của PROMPT TỰ ĐỘNG, cho tới hết P6 hoặc tới khi sắp hết ngữ cảnh. Bắt đầu ngay.
+```
+
+---
+
+## CHẾ ĐỘ TỪNG BƯỚC (chủ duyệt sau mỗi giai đoạn)
+
 ## Chuẩn bị (làm 1 lần)
 
 - **Claude Code trên web/app:** tạo phiên mới, chọn repo **Trungtamdalieu**. Prompt nào cần ZenithTasks sẽ tự clone nó vào `../ZenithTasks` để đọc.
