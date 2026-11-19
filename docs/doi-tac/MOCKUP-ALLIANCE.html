@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hồng Phúc Alliance — Mockup tham chiếu giao diện</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --a950:#052e25;--a900:#073b30;--a800:#0b4d3e;--a700:#0f6650;--a600:#13805f;--a100:#dcf2e9;--a50:#f0faf6;
+  --g500:#c9a24a;--g300:#e6cf8f;--g100:#f8efd6;
+  --ink:#0f1a17;--mute:#5b6b66;--line:#e3e9e6;--bg:#f4f6f5;--card:#fff;
+  --pos:#15803d;--pend:#b45309;--neg:#b91c1c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Be Vietnam Pro',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;padding:32px 24px 64px}
+.num{font-variant-numeric:tabular-nums}
+h1.page{font-size:22px;font-weight:800;letter-spacing:-.01em}
+.sub{color:var(--mute);font-size:13px;margin-top:4px}
+.wrap{max-width:1360px;margin:0 auto}
+.row{display:flex;gap:32px;align-items:flex-start;margin-top:28px;flex-wrap:wrap}
+.label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-bottom:10px}
+
+/* ===== PHONE ===== */
+.phone{width:380px;flex:none;background:var(--a50);border-radius:40px;border:10px solid #101614;box-shadow:0 30px 60px -20px rgba(5,46,37,.35);overflow:hidden;position:relative}
+.ph-top{padding:18px 20px 0;display:flex;justify-content:space-between;align-items:center}
+.ph-top .hi{font-size:13px;color:var(--mute)} .ph-top .nm{font-size:18px;font-weight:700}
+.icons{display:flex;gap:10px}.ic{width:36px;height:36px;border-radius:12px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;font-size:15px}
+.wallet{margin:16px 20px 0;border-radius:22px;padding:20px;color:#fff;position:relative;overflow:hidden;
+  background:radial-gradient(120% 140% at 100% 0%,#13805f 0%,#0b4d3e 45%,#052e25 100%);border:1px solid rgba(201,162,74,.55)}
+.wallet:after{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;border:1px solid rgba(230,207,143,.25)}
+.wallet:before{content:"";position:absolute;right:-20px;top:-20px;width:120px;height:120px;border-radius:50%;border:1px solid rgba(230,207,143,.18)}
+.brand{font-size:10px;letter-spacing:.22em;font-weight:700;color:var(--g300)}
+.wl{font-size:12px;opacity:.75;margin-top:14px}
+.wv{font-size:30px;font-weight:800;letter-spacing:-.02em;margin-top:2px}.wv small{font-size:15px;font-weight:500;opacity:.6}
+.bar{height:6px;border-radius:9px;background:rgba(255,255,255,.15);margin-top:14px;overflow:hidden}.bar i{display:block;height:100%;width:60%;background:linear-gradient(90deg,var(--g300),var(--g500));border-radius:9px}
+.wfoot{display:flex;justify-content:space-between;font-size:11px;margin-top:12px;opacity:.85}
+.wfoot b{color:var(--g300);letter-spacing:.12em}
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 20px 0}
+.btn{border-radius:14px;padding:12px;font-weight:600;font-size:13px;text-align:center;border:1px solid var(--line);background:#fff}
+.btn.pri{background:var(--a600);color:#fff;border-color:var(--a600)}
+.sec{margin:18px 20px 0;background:#fff;border-radius:18px;border:1px solid var(--line);padding:16px}
+.sec h4{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between}
+.sec h4 a{color:var(--a600);text-transform:none;letter-spacing:0;font-weight:600}
+.earn{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.earn div{border-radius:12px;padding:10px 12px;background:var(--a50);min-width:0}
+.earn .k{font-size:11px;color:var(--mute)}.earn .v{font-size:17px;font-weight:700;margin-top:2px}
+.earn .pend{background:#fff7ed}.earn .pend .v{color:var(--pend)}
+.earn .ok .v{color:var(--pos)}
+.tl{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}
+.tli{display:flex;gap:10px;align-items:flex-start;font-size:12px;padding:6px 0}
+.dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none}
+.tli .amt{margin-left:auto;font-weight:700;white-space:nowrap}
+.journey{position:relative;height:46px;margin-top:6px}
+.journey .track{position:absolute;left:0;right:0;top:14px;height:4px;background:var(--line);border-radius:4px}
+.journey .fill{position:absolute;left:0;top:14px;height:4px;width:24%;background:var(--a600);border-radius:4px}
+.journey .m{position:absolute;top:6px;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--line);transform:translateX(-50%)}
+.journey .m.me{border-color:var(--a600);background:var(--a600);box-shadow:0 0 0 5px var(--a100)}
+.journey .m.gold{border-color:var(--g500)}
+.journey .t{position:absolute;top:30px;font-size:10px;color:var(--mute);transform:translateX(-50%);white-space:nowrap}
+.rings{display:flex;gap:18px;align-items:center}
+.ring{width:64px;height:64px;flex:none}
+.ringtxt{font-size:12px;line-height:1.5}.ringtxt b{font-size:14px}
+.tabbar{display:flex;justify-content:space-around;background:#fff;border-top:1px solid var(--line);padding:10px 0 14px;margin-top:18px;font-size:10px;color:var(--mute)}
+.tabbar div{text-align:center}.tabbar span{display:block;font-size:17px;margin-bottom:2px}.tabbar .on{color:var(--a700);font-weight:700}
+
+/* ===== DESKTOP ===== */
+.desk{flex:1;min-width:760px;background:#fff;border-radius:20px;border:1px solid var(--line);box-shadow:0 30px 60px -30px rgba(15,26,23,.25);overflow:hidden}
+.dtop{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line)}
+.dtop .t{font-weight:800;font-size:16px}
+.chip{font-size:12px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:#fff}
+.kbd{margin-left:auto;font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:9px;padding:6px 12px;min-width:220px}
+.dbody{padding:20px 22px;background:#fafbfb}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
+.kpi .k{font-size:11px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
+.kpi .v{font-size:24px;font-weight:800;letter-spacing:-.02em;margin-top:6px}
+.kpi .d{font-size:12px;margin-top:4px;color:var(--mute)}
+.kpi.hero{border-color:var(--g500);background:linear-gradient(180deg,#fffdf7,#fff)}
+.kpi.hero .v{color:#7a5a12}
+.up{color:var(--pos);font-weight:600}
+.funnel{display:flex;gap:6px;margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
+.fs{flex:1}.fs .b{height:34px;border-radius:8px;background:var(--a600);display:flex;align-items:center;padding-left:10px;color:#fff;font-weight:700;font-size:13px}
+.fs .n{font-size:11px;color:var(--mute);margin-top:6px}
+.grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;margin-top:14px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px}
+.panel h5{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin-bottom:12px}
+.seats{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.seats .lb{width:70px;font-size:13px;font-weight:600}
+.seat{width:30px;height:30px;border-radius:9px 9px 6px 6px;background:var(--a700);display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700}
+.seat.free{background:#fff;border:2px dashed #c6d3ce;color:#9aaba5}
+.seat.warn{background:var(--pend)}
+.seat.g{background:linear-gradient(180deg,#d9b866,#b58b2e)}
+.seats .cnt{margin-left:8px;font-size:13px;color:var(--mute)}
+.near{font-size:12px;color:var(--mute);border-top:1px dashed var(--line);padding-top:10px;margin-top:4px}
+.near b{color:var(--ink)}
+.todo{display:flex;flex-direction:column;gap:8px}
+.ti{display:flex;align-items:center;gap:10px;font-size:13px;padding:10px 12px;border-radius:10px;border:1px solid var(--line)}
+.ti .tag{font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;margin-left:auto;white-space:nowrap}
+.r{background:#fef2f2;color:var(--neg)}.y{background:#fff7ed;color:var(--pend)}.gr{background:var(--a50);color:var(--a700)}
+.heat{margin-top:14px}
+.hm{display:grid;grid-template-columns:150px repeat(6,1fr);gap:4px;font-size:12px;align-items:center}
+.hm .h{font-size:10px;color:var(--mute);text-align:center}
+.cell{height:22px;border-radius:5px}
+.c1{background:var(--a600)}.c2{background:#f2c27b}.c3{background:#f3b1ad}.c0{background:#eef2f0}
+.legend{display:flex;gap:14px;font-size:11px;color:var(--mute);margin-top:10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* ===== HIỆU SUẤT & PHÂN QUYỀN ===== */
+.lens{display:inline-flex;background:#eef2f0;border-radius:11px;padding:3px;gap:2px}
+.lens span{font-size:12px;font-weight:600;padding:6px 12px;border-radius:9px;color:var(--mute)}
+.lens .on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.asw{margin-left:auto;font-size:12px;border:1px dashed var(--g500);background:var(--g100);color:#7a5a12;border-radius:9px;padding:6px 10px;font-weight:600}
+.gcards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.g{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
+.g .k{font-size:11px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.g .v{font-size:22px;font-weight:800;margin-top:6px}.g .s{font-size:12px;margin-top:3px;color:var(--mute)}
+.tag2{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;background:#eef2f0;color:var(--mute);margin-left:6px;vertical-align:2px}
+.grid3{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-top:12px}
+.bul{margin:10px 0}.bul .lb{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.bul .tr{position:relative;height:12px;background:#eef2f0;border-radius:6px}
+.bul .fi{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--a600)}
+.bul .tg{position:absolute;top:-3px;width:3px;height:18px;background:var(--ink);border-radius:2px}
+.inc{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.inc:last-child{border-bottom:0}.inc .rt{text-align:right}.inc .rt small{display:block;color:var(--mute);font-size:11px}
+.pm{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
+.pm th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+.pm td{padding:7px 8px;border-bottom:1px solid #f0f3f2;white-space:nowrap}
+.sc{display:inline-block;font-size:11px;font-weight:600;padding:3px 7px;border-radius:6px}
+.s-all{background:var(--a100);color:var(--a800)}.s-team{background:#e0ecff;color:#1e40af}.s-me{background:#f1f5f9;color:#334155}.s-no{background:#fef2f2;color:var(--neg)}.s-ro{background:var(--g100);color:#7a5a12}
+.note{max-width:1360px;margin:28px auto 0;font-size:12px;color:var(--mute);line-height:1.7;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page">Hồng Phúc Alliance — mockup tham chiếu giao diện</h1>
+  <p class="sub">Dữ liệu minh hoạ. Trái: cổng Đối tác (PWA, mobile-first, sub-brand xanh lục + vàng khớp bộ infographic). Phải: Đài chỉ huy của Ban điều hành. Dưới: Hiệu suất & tăng trưởng (3 ống kính) và màn hình phân quyền.</p>
+
+  <div class="row">
+    <!-- PHONE -->
+    <div>
+      <div class="label">Cổng đối tác · Trang chủ</div>
+      <div class="phone">
+        <div class="ph-top">
+          <div><div class="hi">Chào buổi chiều,</div><div class="nm">Chị Hạnh</div></div>
+          <div class="icons"><div class="ic">🔔</div><div class="ic">⚙︎</div></div>
+        </div>
+
+        <div class="wallet">
+          <div class="brand">HỒNG PHÚC ALLIANCE</div>
+          <div class="wl">Ví quyền lợi còn lại</div>
+          <div class="wv num">18.000.000<small>đ / 30.000.000đ</small></div>
+          <div class="bar"><i></i></div>
+          <div class="wfoot"><span>ĐỐI TÁC · <b>HP-2K7Q</b></span><span>Hạn dùng 11/2027</span></div>
+        </div>
+
+        <div class="qa">
+          <div class="btn pri">Chọn quyền lợi</div>
+          <div class="btn">Đặt lịch</div>
+        </div>
+
+        <div class="sec">
+          <h4>Thu nhập <a>Sao kê T11 ›</a></h4>
+          <div class="earn">
+            <div class="ok"><div class="k">Khả dụng</div><div class="v num">6.000.000đ</div></div>
+            <div class="pend"><div class="k">Chờ đối soát 30/11</div><div class="v num">3.000.000đ</div></div>
+          </div>
+          <div class="tl">
+            <div class="tli"><span class="dot" style="background:var(--pend)"></span><div>Chị Lan (***482) thanh toán đủ gói<br><span style="color:var(--mute)">Hôm nay · Chờ đối soát</span></div><span class="amt num" style="color:var(--pend)">+3.000.000</span></div>
+            <div class="tli"><span class="dot" style="background:var(--pos)"></span><div>Thù lao dịch vụ ngoài gói 12%<br><span style="color:var(--mute)">14/11 · Khả dụng</span></div><span class="amt num" style="color:var(--pos)">+2.160.000</span></div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <h4>Hành trình lên hạng</h4>
+          <div class="journey">
+            <div class="track"></div><div class="fill"></div>
+            <div class="m" style="left:2%"></div><div class="t" style="left:4%">0</div>
+            <div class="m me" style="left:24%"></div><div class="t" style="left:24%;color:var(--a700);font-weight:700">12 HĐ</div>
+            <div class="m gold" style="left:80%"></div><div class="t" style="left:76%">50 · 2%</div>
+            <div class="m gold" style="left:97%"></div><div class="t" style="left:auto;right:-14px;transform:none">60 · 5%</div>
+          </div>
+          <div style="font-size:12px;color:var(--mute);margin-top:6px">Còn <b style="color:var(--ink)">38 hợp đồng</b> tới mốc Suất 2% (còn 3/10 suất trống)</div>
+        </div>
+
+        <div class="sec">
+          <h4>Duy trì tháng 11</h4>
+          <div class="rings">
+            <svg class="ring" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="27" fill="none" stroke="#e3e9e6" stroke-width="7"/>
+              <circle cx="32" cy="32" r="27" fill="none" stroke="#13805f" stroke-width="7" stroke-linecap="round" stroke-dasharray="169.6" stroke-dashoffset="0" transform="rotate(-90 32 32)"/>
+              <circle cx="32" cy="32" r="17" fill="none" stroke="#e3e9e6" stroke-width="7"/>
+              <circle cx="32" cy="32" r="17" fill="none" stroke="#c9a24a" stroke-width="7" stroke-linecap="round" stroke-dasharray="106.8" stroke-dashoffset="106.8" transform="rotate(-90 32 32)"/>
+            </svg>
+            <div class="ringtxt">
+              <div><b style="color:var(--a700)">●</b> Hợp đồng <b class="num">1/1</b> ✓</div>
+              <div><b style="color:var(--g500)">●</b> Nhiệm vụ chung <b class="num">0/1</b></div>
+              <div style="color:var(--a600);font-weight:600">▸ Zoom thứ Năm 20:00 — Đăng ký</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabbar">
+          <div class="on"><span>⌂</span>Trang chủ</div><div><span>◫</span>Ví</div><div><span>₫</span>Thu nhập</div><div><span>▶</span>Học viện</div><div><span>◉</span>Tôi</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESKTOP -->
+    <div style="flex:1;min-width:760px">
+      <div class="label">Trungtamdalieu · /doi-tac · Đài chỉ huy</div>
+      <div class="desk">
+        <div class="dtop">
+          <div class="t">Đối tác chiến lược</div>
+          <div class="chip">Kỳ: Tháng 11/2026 ▾</div>
+          <div class="chip">Mô phỏng</div>
+          <div class="kbd">⌘K  Tìm đối tác, hợp đồng, mã…</div>
+        </div>
+        <div class="dbody">
+          <div class="kpis">
+            <div class="kpi"><div class="k">Gói bán tháng</div><div class="v num">42</div><div class="d"><span class="up">▲ 12%</span> so T10</div></div>
+            <div class="kpi"><div class="k">Thực thu</div><div class="v num">630tr</div><div class="d">gói + ngoài gói</div></div>
+            <div class="kpi hero"><div class="k">Nghĩa vụ dịch vụ còn nợ</div><div class="v num">1,92 tỷ</div><div class="d">giá vốn ước ~128tr · 118 gói hết hạn ≤30 ngày</div></div>
+            <div class="kpi"><div class="k">Hoa hồng phải trả</div><div class="v num">146tr</div><div class="d"><span style="color:var(--pend)">chờ 84tr</span> · khả dụng 62tr</div></div>
+            <div class="kpi"><div class="k">Lợi nhuận kỳ (ước)</div><div class="v num">118tr</div><div class="d">quỹ suất quyền lợi 29%</div></div>
+          </div>
+
+          <div class="funnel">
+            <div class="fs"><div class="b" style="width:100%">96</div><div class="n">Quan tâm</div></div>
+            <div class="fs"><div class="b" style="width:68%">55</div><div class="n">Ký hợp đồng</div></div>
+            <div class="fs"><div class="b" style="width:52%">42</div><div class="n">Thu đủ</div></div>
+            <div class="fs"><div class="b" style="width:40%">31</div><div class="n">Dùng lần 1</div></div>
+            <div class="fs"><div class="b" style="width:22%;background:var(--a800)">14</div><div class="n">Dùng hết ví</div></div>
+            <div class="fs"><div class="b" style="width:18%;background:var(--g500)">11</div><div class="n">Mua ngoài gói</div></div>
+          </div>
+
+          <div class="grid2">
+            <div class="panel">
+              <h5>Sơ đồ suất quyền lợi</h5>
+              <div class="seats"><span class="lb">Suất 2%</span>
+                <div class="seat">1</div><div class="seat">2</div><div class="seat warn">3</div><div class="seat">4</div><div class="seat">5</div><div class="seat">6</div><div class="seat warn">7</div><div class="seat free">8</div><div class="seat free">9</div><div class="seat free">10</div><span class="cnt num">7/10</span></div>
+              <div class="seats"><span class="lb">Suất 5%</span>
+                <div class="seat g">1</div><div class="seat g">2</div><div class="seat g">3</div><div class="seat free">4</div><div class="seat free">5</div><span class="cnt num">3/5</span></div>
+              <div class="near">Gần mốc: <b>Nguyễn A</b> 46/50 · <b>Trần B</b> 57/60 · <b>Phạm C</b> 41/50</div>
+
+              <div class="heat">
+                <h5 style="margin:14px 0 8px">Duy trì 6 tháng gần nhất</h5>
+                <div class="hm">
+                  <span></span><span class="h">T6</span><span class="h">T7</span><span class="h">T8</span><span class="h">T9</span><span class="h">T10</span><span class="h">T11</span>
+                  <span>Suất 2% · #3</span><i class="cell c1"></i><i class="cell c1"></i><i class="cell c2"></i><i class="cell c1"></i><i class="cell c3"></i><i class="cell c3"></i>
+                  <span>Suất 2% · #7</span><i class="cell c0"></i><i class="cell c1"></i><i class="cell c1"></i><i class="cell c2"></i><i class="cell c2"></i><i class="cell c3"></i>
+                  <span>Suất 5% · #1</span><i class="cell c1"></i><i class="cell c1"></i><i class="cell c1"></i><i class="cell c1"></i><i class="cell c1"></i><i class="cell c1"></i>
+                </div>
+                <div class="legend"><span><i class="c1"></i>Đạt</span><span><i class="c2"></i>Thiếu hợp đồng (chỉ nhắc)</span><span><i class="c3"></i>Thiếu nhiệm vụ chung</span><span><i class="c0"></i>Chưa có suất</span></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h5>Cần xử lý hôm nay</h5>
+              <div class="todo">
+                <div class="ti">⏱ Vụ chấm dứt Suất 2% #3 — hạn giải trình<span class="tag r num">còn 4 ngày LV</span></div>
+                <div class="ti">⚠ Suất 2% #7 thiếu nhiệm vụ chung tháng 11<span class="tag y">Soạn nhắc</span></div>
+                <div class="ti">💳 Lô chi trả hoa hồng T10 · 38 khoản<span class="tag y">Chờ duyệt</span></div>
+                <div class="ti">📅 118 gói hết hạn trong 30 ngày · dự phòng hoàn<span class="tag y num">~1,1 tỷ</span></div>
+                <div class="ti">🔎 3 hợp đồng bất thường (cùng TK thanh toán)<span class="tag r">Kiểm tra</span></div>
+                <div class="ti">🎓 Zoom thứ Năm: 26 đối tác đăng ký<span class="tag gr">Điểm danh tự ghi nhận</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="row">
+    <div style="flex:1;min-width:760px">
+      <div class="label">Trungtamdalieu · /hieu-suat · Hiệu suất & tăng trưởng (cùng 1 trang, 3 ống kính theo phạm vi)</div>
+      <div class="desk">
+        <div class="dtop">
+          <div class="t">Hiệu suất & tăng trưởng</div>
+          <div class="lens"><span>Của tôi</span><span>Đội tôi</span><span class="on">Toàn hệ thống</span></div>
+          <div class="chip">12 tháng ▾</div>
+          <div class="asw">👁 Xem với tư cách: Ban điều hành ▾</div>
+        </div>
+        <div class="dbody">
+          <div class="gcards">
+            <div class="g"><div class="k">Thực thu tháng</div><div class="v num">630tr</div><div class="s"><span class="up">▲ 12,4%</span> MoM · <span class="up">▲ 38%</span> YoY</div></div>
+            <div class="g"><div class="k">Dự phóng tháng<span class="tag2">dự phóng</span></div><div class="v num">910tr</div><div class="s">theo tốc độ 19/30 ngày</div></div>
+            <div class="g"><div class="k">Khách dùng lần 1 ≤30 ngày</div><div class="v num">74%</div><div class="s">chất lượng · mục tiêu 80%</div></div>
+            <div class="g"><div class="k">Tỷ lệ hoàn tiền</div><div class="v num">2,1%</div><div class="s"><span class="up">▼ 0,6 điểm</span> so T10</div></div>
+          </div>
+
+          <div class="grid3">
+            <div class="panel">
+              <h5>Thực thu 12 tháng · nét đứt = cùng kỳ năm trước</h5>
+              <svg viewBox="0 0 560 170" style="width:100%;height:auto">
+                <g stroke="#eef2f0"><line x1="30" y1="20" x2="555" y2="20"/><line x1="30" y1="60" x2="555" y2="60"/><line x1="30" y1="100" x2="555" y2="100"/><line x1="30" y1="140" x2="555" y2="140"/></g>
+                <g font-size="10" fill="#5b6b66"><text x="0" y="24">800</text><text x="0" y="64">600</text><text x="0" y="104">400</text><text x="0" y="144">200</text></g>
+                <polyline fill="none" stroke="#9aaba5" stroke-width="2" stroke-dasharray="5 5" points="40,128 85,124 130,126 175,118 220,116 265,112 310,110 355,106 400,104 445,100 490,98 535,96"/>
+                <path d="M40,120 L85,112 L130,114 L175,100 L220,94 L265,86 L310,80 L355,72 L400,70 L445,62 L490,58 L535,54 L535,140 L40,140Z" fill="#13805f" opacity=".08"/>
+                <polyline fill="none" stroke="#13805f" stroke-width="3" stroke-linejoin="round" points="40,120 85,112 130,114 175,100 220,94 265,86 310,80 355,72 400,70 445,62 490,58 535,54"/>
+                <circle cx="535" cy="54" r="5" fill="#13805f" stroke="#fff" stroke-width="2"/>
+                <g font-size="10" fill="#5b6b66"><text x="34" y="160">T12</text><text x="124" y="160">T2</text><text x="214" y="160">T4</text><text x="304" y="160">T6</text><text x="394" y="160">T8</text><text x="484" y="160">T10</text><text x="524" y="160">T11</text></g>
+              </svg>
+              <h5 style="margin-top:12px">Đóng góp theo đội · tháng 11</h5>
+              <div style="display:flex;height:26px;border-radius:8px;overflow:hidden;font-size:11px;color:#fff;font-weight:700">
+                <div style="width:44%;background:#0b4d3e;display:flex;align-items:center;padding-left:8px">Tư vấn & lễ tân 44%</div>
+                <div style="width:27%;background:#13805f;display:flex;align-items:center;padding-left:8px">Bác sĩ 27%</div>
+                <div style="width:17%;background:#c9a24a;display:flex;align-items:center;padding-left:8px">Đối tác 17%</div>
+                <div style="width:12%;background:#9aaba5;display:flex;align-items:center;padding-left:6px">Khác</div>
+              </div>
+              <div class="bul"><div class="lb"><span>Đội Tư vấn & lễ tân — mục tiêu tháng</span><b class="num">277 / 320tr</b></div><div class="tr"><div class="fi" style="width:86%"></div><div class="tg" style="left:100%;margin-left:-3px"></div></div></div>
+              <div class="bul"><div class="lb"><span>Đội Truyền thông — khách đến từ nội dung</span><b class="num">41 / 60</b></div><div class="tr"><div class="fi" style="width:68%;background:var(--g500)"></div><div class="tg" style="left:100%;margin-left:-3px"></div></div></div>
+            </div>
+
+            <div class="panel">
+              <h5>Thu nhập ban điều hành & nhân sự cố định · T11 (tạm tính)</h5>
+              <div style="font-size:11px;color:var(--mute);margin-bottom:6px">Doanh số tổng kỳ (theo D5): <b class="num" style="color:var(--ink)">630.000.000đ</b></div>
+              <div class="inc"><span>Lê Đình Lam · 10%</span><span class="rt num"><b>63.000.000</b><small>duyệt bởi: Nguyễn Quyên</small></span></div>
+              <div class="inc"><span>Lê Vân · 10%</span><span class="rt num"><b>63.000.000</b><small>duyệt bởi: Lê Đình Lam</small></span></div>
+              <div class="inc"><span>Nguyễn Quyên · 10%</span><span class="rt num"><b>63.000.000</b><small>duyệt bởi: Lê Vân</small></span></div>
+              <div class="inc"><span>Bích · 20tr + 2%</span><span class="rt num"><b>32.600.000</b><small>lập: hệ thống · duyệt: ban điều hành</small></span></div>
+              <div class="inc"><span>Truyền thông (3 người) · 8tr + 2%</span><span class="rt num"><b>61.800.000</b><small>20.600.000/người</small></span></div>
+              <div style="margin-top:10px;font-size:11px;color:var(--mute);line-height:1.6">Nhân viên chỉ thấy dòng của mình · Cổ đông thấy theo D15, không sửa được · Đối tác 2%/5% chỉ thấy tổng trong Phòng dữ liệu kỳ</div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:12px">
+            <h5>/he-thong/phan-quyen · Vai trò × mục: hành động + phạm vi</h5>
+            <table class="pm">
+              <tr><th>Vai trò</th><th>Hiệu suất</th><th>Thu nhập / hoa hồng</th><th>Khách & ví</th><th>SĐT</th><th>Hồ sơ y khoa</th><th>Duyệt chi</th></tr>
+              <tr><td><b>Ban điều hành</b></td><td><span class="sc s-all">Toàn bộ</span></td><td><span class="sc s-all">Toàn bộ</span></td><td><span class="sc s-all">Toàn bộ</span></td><td>Đầy đủ</td><td>Đầy đủ</td><td>Duyệt (trừ khoản của mình)</td></tr>
+              <tr><td><b>Kế toán</b></td><td><span class="sc s-all">Toàn bộ</span></td><td><span class="sc s-all">Toàn bộ</span></td><td><span class="sc s-all">Toàn bộ</span></td><td>Che</td><td><span class="sc s-no">Ẩn</span></td><td>Lập lô</td></tr>
+              <tr><td><b>Trưởng nhóm</b></td><td><span class="sc s-team">Đội tôi</span></td><td><span class="sc s-team">Đội tôi*</span></td><td><span class="sc s-team">Đội tôi</span></td><td>Che</td><td>Theo vai trò</td><td>—</td></tr>
+              <tr><td><b>Nhân viên</b></td><td><span class="sc s-me">Của tôi</span></td><td><span class="sc s-me">Của tôi</span></td><td><span class="sc s-me">Khách phụ trách</span></td><td>Khi phục vụ</td><td>Theo vai trò</td><td>—</td></tr>
+              <tr><td><b>Bác sĩ</b></td><td><span class="sc s-me">Của tôi</span></td><td><span class="sc s-no">Không (hoa hồng đối tác)</span></td><td><span class="sc s-me">BN điều trị</span></td><td>Khi phục vụ</td><td>Đầy đủ</td><td>—</td></tr>
+              <tr><td><b>Cổ đông</b></td><td><span class="sc s-ro">Toàn bộ · chỉ xem</span></td><td><span class="sc s-ro">Theo D15 · chỉ xem</span></td><td><span class="sc s-ro">Tổng hợp</span></td><td>Che</td><td><span class="sc s-no">Ẩn</span></td><td><span class="sc s-no">Không</span></td></tr>
+              <tr><td><b>Đối tác</b></td><td><span class="sc s-me">Của tôi</span></td><td><span class="sc s-me">Của tôi</span></td><td><span class="sc s-me">Ví của tôi</span></td><td>Che</td><td><span class="sc s-no">Ẩn</span></td><td>—</td></tr>
+              <tr><td><b>Khách hàng</b></td><td>—</td><td>—</td><td><span class="sc s-me">Phần được giao</span></td><td>Của mình</td><td>Của mình</td><td>—</td></tr>
+            </table>
+            <div style="font-size:11px;color:var(--mute);margin-top:8px">* Thu nhập từng thành viên chỉ khi được cấp quyền <code>income.team</code> (D14). Phạm vi thi hành ở server — ẩn trên giao diện không phải là bảo mật.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note">Quy tắc thể hiện: số tiền dùng chữ số đều cột, mọi con số bấm vào mở bút toán gốc; màu trạng thái chỉ có 3 nghĩa (xanh = chắc chắn, hổ phách = chờ, đỏ = cần hành động); vàng chỉ dùng cho hạng, mốc và viền thẻ. Không có cây tuyến dưới, không có bảng xếp hạng theo số người tuyển, không dùng chữ "cổ đông" trong nội dung cho đối tác (role Cổ đông của chủ sở hữu thật giữ nguyên, chỉ xem).</p>
+</div>
+</body>
+</html>
