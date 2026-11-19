@@ -6,6 +6,10 @@
 >
 > ⚠️ **Lưu ý vị trí mã nguồn:** repo này (`Trungtamdalieu`) chỉ chứa tài liệu. Mã ZenithTasks nằm ở repo `ZenithTasks`; bản tôi đọc là `master@f19b5be` (23/09/2026). **Trước P0 phải xác nhận đây là bản mới nhất đang chạy tại phòng khám** (đối chiếu `VERSION.md` + `git ls-remote`). Mọi đường dẫn `web/...` dưới đây là đường dẫn trong repo ZenithTasks.
 
+> 🔁 **ĐIỀU CHỈNH 19/11/2026 theo chỉ đạo của chủ:** app tên là **Trungtamdalieu**, mã nguồn và tài liệu lưu tại repo `ledinhlam23032000/Trungtamdalieu`. **ZenithTasks chỉ là tài liệu tham khảo** (mô hình dữ liệu, cách khoá tiền, RBAC, sổ cái append-only đã chứng minh hiệu quả) — không thi công vào repo đó. Hệ quả cho kế hoạch: mục A đọc là "mẫu thiết kế mượn từ ZenithTasks", không phải "file sẽ sửa"; các xung đột B.2, B.4, B.5, B.6, B.11 (vốn sinh ra do dùng chung bảng `Customer`/`Payment`/`Collaborator` với ZenithTasks) trở thành **quy tắc thiết kế** cho app mới thay vì việc phải vá. Bản chạy thử đầu tiên nằm ở `prototype/alliance/index.html` (chạy trong trình duyệt, 19/19 test số vàng đạt). Kế hoạch sẽ được viết lại mục A và C cho kiến trúc app riêng sau khi chủ duyệt bản chạy thử.
+>
+> **Yêu cầu bổ sung của chủ (đã có trong bản chạy thử):** biểu đồ tăng trưởng hiệu suất nhân sự / nhóm / thu nhập theo % doanh số tổng của ban điều hành và bộ phận; phân quyền theo phạm vi: Ban điều hành xem hết và thao tác, Kế toán xem hết số tiền, **Cổ đông bệnh viện xem hết nhưng không sửa**, Trưởng nhóm xem nhóm mình, Nhân viên xem của mình, Bác sĩ không thấy hoa hồng, Khách/Đối tác chỉ xem phần của mình. Vai trò "Cổ đông bệnh viện" dành cho người góp vốn thật của bệnh viện; đối tác 2%/5% không bao giờ được gán vai trò này (D2 vẫn giữ).
+
 ---
 
 ## A. BẢN ĐỒ TÁI SỬ DỤNG
