@@ -269,7 +269,8 @@ hợp lệ = có thật + thanh toán đủ + chưa huỷ/hoàn tại ngày đ�
 
 **F3. Thù lao ngoài gói** (HĐ gói, Điều 3)
 ```
-thùLao = tỷLệ(nhóm dịch vụ, 10–15%) × (tiền dịch vụ ngoài gói THỰC THU − giảm giá − hoàn tiền)
+thùLao = tỷLệ(nhóm dịch vụ, 10–15%) × (tiền dịch vụ ngoài gói THỰC THU − hoàn tiền chưa phản ánh trong thực thu)
+THỰC THU = số tiền khách thực trả, ĐÃ sau giảm giá → KHÔNG trừ giảm giá thêm lần nữa
 cờ: gồm thuế / chưa thuế (ghi theo hợp đồng của từng đối tác)
 chỉ tính khách do đối tác TRỰC TIẾP tư vấn, giới thiệu, được Bên A xác nhận
 ```
@@ -615,7 +616,8 @@ Nếu cần ưu tiên: **P0a → P0b → P1 → P2** là đủ để chương tr
 | T10 | Đăng ký suất 2% thứ 11 | Bị từ chối / vào danh sách chờ |
 | T11 | Một hợp đồng gói gán cho 2 đối tác | Bị chặn ở tầng DB (unique) và tầng nghiệp vụ |
 | T12 | Khách trả 10tr/15tr | Hoa hồng **không** đủ điều kiện; trả đủ → đủ điều kiện ở kỳ đối soát; hoàn tiền sau khi trả → bút toán **−3.000.000** bù trừ kỳ sau |
-| T13 | Dịch vụ ngoài gói 20tr, giảm 2tr, tỷ lệ 12% | Thù lao 12% × 18tr = **2.160.000đ** |
+| T13 | Dịch vụ ngoài gói giá 20tr, giảm 2tr → khách thực trả 18tr, chưa hoàn tiền, tỷ lệ 12% | Thù lao 12% × 18tr = **2.160.000đ** (giảm giá chỉ trừ một lần) |
+| T13b | Như T13, sau đó hoàn 3tr | Thù lao điều chỉnh 12% × 15tr = **1.800.000đ** (bút toán −360.000) |
 | T14 | Suất 5%: 330tr đã cấn trừ, sau đó 60 hợp đồng thật được ghi nhận | Không chi lại 180tr thưởng trực tiếp / 150tr thưởng mốc đã cấn trừ |
 | T15 | Chọn gói A07 (15tr giá trị) | Ví còn **15.000.000đ** để chọn tiếp (D3) |
 | T16 | Ghi nhận sử dụng vượt ví 5tr không có đồng ý trước | Bị chặn |
