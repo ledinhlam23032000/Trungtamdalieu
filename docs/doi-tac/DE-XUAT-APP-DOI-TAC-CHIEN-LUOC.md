@@ -79,7 +79,7 @@ App phải trả lời được bốn câu hỏi bất kỳ lúc nào, cho đún
 | **D13** | **Đối tác 5% "tuyển trực tiếp 03 người"** | HĐ 5% Điều 4 | KPI duy trì chỉ đếm **hợp đồng gói hợp lệ được ghi nhận cho đối tác**, không đếm số người được tuyển. Mỗi hợp đồng ghi nhận cho đúng 1 đối tác, tính 1 lần |
 | **D14** | **Trưởng nhóm có thấy thu nhập từng thành viên không** | Yêu cầu "sếp xem hết, nhân viên xem của mình" | Trưởng nhóm thấy **kết quả và chất lượng** của đội; **thu nhập từng người** chỉ khi được grant `income.team`. Ban điều hành, kế toán thấy hết |
 | **D15** | **Cổ đông thấy thu nhập ban điều hành ở mức nào** | Zenith hiện không cho cổ đông xem lương từng nhân viên | Cổ đông thấy **thu nhập ban điều hành theo từng người** (thông tin quản trị chủ sở hữu cần biết) + **tổng** lương nhân viên theo nhóm; không thấy lương từng nhân viên |
-| **D16** | **"2% doanh số" của nhân sự truyền thông** | Bảng chi phí cố định ghi "8.000.000 + 2% doanh số", không nói rõ tổng hay cá nhân | Mặc định **2% doanh số tổng** như dòng của kế toán, chờ chủ xác nhận |
+| **D16** ✅ | **"2% doanh số" của nhân sự truyền thông** | Bảng chi phí cố định ghi "8.000.000 + 2% doanh số" | **ĐÃ CHỐT: 2% doanh số cá nhân từng người.** Cần luật ghi nhận nguồn khách cho từng nhân sự truyền thông (D16a trong QUYET-DINH.md): khách đến từ nội dung/kênh do người đó phụ trách hoặc khách người đó trực tiếp chốt; mỗi khoản thực thu chỉ ghi nhận cho 1 người |
 | **D17** | **Nhân viên có thấy so sánh với đồng nghiệp không** | — | Chỉ thấy **vị trí ẩn danh so với trung vị đội** (ví dụ "nhóm 30% cao nhất"), không thấy tên và số của người khác |
 
 **Một nhận xét thẳng:** cấu trúc hiện tại có ba yếu tố mà cơ quan quản lý thường soi khi đánh giá đa cấp trá hình: (1) người tham gia trả tiền để có quyền giới thiệu và hưởng thưởng, (2) thưởng từ doanh số của người mình tuyển, (3) điều kiện duy trì đo bằng số người tuyển thêm. Hợp đồng đã được soạn cẩn thận để né (2) và (3), nhưng infographic thì không. App là nơi luật thực sự được thi hành, nên app phải đi theo **hợp đồng**, không theo infographic. Tôi khuyến nghị cho luật sư rà lại infographic trước khi phát hành tiếp, vì tài liệu quảng bá cũng là chứng cứ.
@@ -507,7 +507,7 @@ Toàn bộ phân tích dùng chung một trang `/hieu-suat` (mở rộng trang H
 |---|---|---|---|
 | **Nhân viên tư vấn / lễ tân** | Gói bán, thực thu, doanh số ngoài gói, tỷ lệ chốt | Tỷ lệ khách dùng lần 1 trong 30 ngày, tỷ lệ hoàn tiền, NPS | Số lượt tư vấn, lượt chăm sóc, ngày công |
 | **Bác sĩ** | Ca thực hiện, doanh thu dịch vụ thực hiện | Tái khám đúng hẹn, biến chứng/sửa lỗi, NPS | Giờ thủ thuật |
-| **Media** | Video đăng, lượt tiếp cận, khách đến từ nội dung | Tỷ lệ nội dung được duyệt lần đầu | Yêu cầu quay dựng đã xử lý |
+| **Media** | Video đăng, lượt tiếp cận, khách đến từ nội dung, **doanh số cá nhân ghi nhận (căn cứ 2% thu nhập, D16)** | Tỷ lệ nội dung được duyệt lần đầu | Yêu cầu quay dựng đã xử lý |
 | **Đội nhóm** | Tổng của thành viên, tăng trưởng, đạt mục tiêu | Như trên, theo trung vị đội | Phân bố đóng góp (tránh phụ thuộc 1 người) |
 | **Đối tác** | Hợp đồng gói được ghi nhận, doanh số ngoài gói giới thiệu, hoa hồng | Tỷ lệ khách được giới thiệu thực sự dùng dịch vụ, tỷ lệ hoàn tiền | Nhiệm vụ chung, điểm danh |
 | **Ban điều hành** | Thu nhập theo % doanh số tổng, doanh số tổng, lợi nhuận kỳ | Biên lợi nhuận, nghĩa vụ dịch vụ còn nợ | — |
@@ -538,7 +538,7 @@ Bảng chi phí cố định của chương trình quy định thu nhập theo %
 | Lê Vân — Founder (sản xuất & phân phối) | 10% doanh số tổng |
 | Nguyễn Quyên — Giám đốc đào tạo, chiến lược & vận hành | 10% doanh số tổng |
 | Bích — Kế toán tổng | 20.000.000 + 2% doanh số tổng |
-| Bảo Ngọc, Dương, Tuấn — Truyền thông & nội dung | 8.000.000 + 2% doanh số **(xác nhận: doanh số tổng hay doanh số cá nhân — D16)** |
+| Bảo Ngọc, Dương, Tuấn — Truyền thông & nội dung | 8.000.000 + 2% **doanh số cá nhân** của từng người (D16 đã chốt; luật ghi nhận nguồn khách theo D16a) |
 
 Màn hình `/hieu-suat/thu-nhap`:
 - **Mỗi người** thấy thu nhập của mình: kỳ này (đã chốt / tạm tính), xu hướng 12 tháng, bấm vào để xem doanh số tổng cấu thành từ đâu.
@@ -631,7 +631,8 @@ Nếu cần ưu tiên: **P0a → P0b → P1 → P2** là đủ để chương tr
 | T24 | Admin đổi role của một người đang đăng nhập | JWT cũ mất hiệu lực ở request kế tiếp |
 | T25 | Kế toán mở hồ sơ khách | SĐT che, không có trường hồ sơ y khoa trong payload |
 | T26 | Một người kiêm tư vấn và bác sĩ của hồ sơ 48tr | Doanh số đội và toàn hệ thống tính **48tr**, không phải 96tr |
-| T27 | Doanh số tổng kỳ 1 tỷ (định nghĩa theo D5) | Mỗi giám đốc 100.000.000; kế toán 20.000.000 + 20.000.000 = 40.000.000; mỗi nhân sự truyền thông 8.000.000 + 20.000.000 = 28.000.000 (theo D16 mặc định) |
+| T27 | Doanh số tổng kỳ 1 tỷ (định nghĩa theo D5); doanh số cá nhân ghi nhận: Bảo Ngọc 120tr, Dương 80tr, Tuấn 60tr | Mỗi giám đốc **100.000.000**; kế toán 20.000.000 + 20.000.000 = **40.000.000**; Bảo Ngọc 8.000.000 + 2.400.000 = **10.400.000**; Dương 8.000.000 + 1.600.000 = **9.600.000**; Tuấn 8.000.000 + 1.200.000 = **9.200.000** |
+| T27b | Một khoản thực thu 10tr có nguồn gắn cho cả Dương và Tuấn | Bị chặn: mỗi khoản chỉ ghi nhận cho 1 nhân sự truyền thông (D16a) |
 | T28 | Tháng hiện tại đã qua 10/30 ngày, thực thu 200tr | Thẻ "dự phóng" = 600tr, có nhãn dự phóng |
 | T29 | Nhân viên mở so sánh với đội | Payload chỉ có phân vị của chính mình, không có tên/số người khác |
 

@@ -27,6 +27,7 @@
 | Q7 | Tự giới thiệu chính mình (người mua = người giới thiệu) | Không cho phép | | MẶC ĐỊNH |
 | D14 | Trưởng nhóm thấy thu nhập từng thành viên | Chỉ khi được cấp quyền `income.team`; mặc định chỉ thấy kết quả & chất lượng của đội | | MẶC ĐỊNH |
 | D15 | Cổ đông thấy thu nhập ban điều hành | Thấy theo từng người (ban điều hành) + tổng lương nhân viên theo nhóm; không thấy lương từng nhân viên | | MẶC ĐỊNH |
-| D16 | "2% doanh số" của Bảo Ngọc, Dương, Tuấn | 2% doanh số tổng | | MẶC ĐỊNH |
+| D16 | "2% doanh số" của Bảo Ngọc, Dương, Tuấn | 2% doanh số tổng | **2% doanh số CÁ NHÂN của từng người.** Cách ghi nhận doanh số cá nhân cho nhân sự truyền thông: xem D16a | ĐÃ CHỐT |
+| D16a | Doanh số nào được tính là "cá nhân" của nhân sự truyền thông | Thực thu từ khách có **nguồn ghi nhận** cho người đó: khách đến từ video/kênh/chiến dịch do người đó phụ trách (mã nguồn/UTM/mã giới thiệu nội bộ), hoặc khách người đó trực tiếp tư vấn và chốt. Mỗi khoản thực thu chỉ ghi nhận cho **1** nhân sự truyền thông. Doanh số được tính theo thực thu, trừ hoàn tiền | | MẶC ĐỊNH |
 | D17 | Nhân viên so sánh với đồng nghiệp | Chỉ phân vị ẩn danh so với trung vị đội | | MẶC ĐỊNH |
 | D18 | Đơn vị/đội nhóm ban đầu | Ban điều hành · Kế toán · Tư vấn & lễ tân · Bác sĩ · Truyền thông & nội dung · Đào tạo (Nguyễn Quyên trưởng) | | MẶC ĐỊNH |

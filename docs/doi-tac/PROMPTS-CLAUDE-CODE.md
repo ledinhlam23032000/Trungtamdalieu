@@ -182,13 +182,13 @@ Kiểm tra trên seed: ban điều hành trả lời được 4 câu hỏi mục
 ## PROMPT 8 — P6: Phân tích tăng trưởng & Thu nhập lãnh đạo
 
 ```
-Đọc đặc tả mục 5 (phạm vi), 9A (đọc hết), 13 (T26–T29); QUYET-DINH D5, D14, D15, D16, D17; ../ZenithTasks/web/src/lib/performance.ts, revenue-attribution.ts, FINANCE-DEFINITIONS.md; MOCKUP-ALLIANCE.html (phần "Hiệu suất & tăng trưởng"). Nhánh feature/p6-hieu-suat.
+Đọc đặc tả mục 5 (phạm vi), 9A (đọc hết), 13 (T26–T29, T27b); QUYET-DINH D5, D14, D15, D16, D16a, D17; ../ZenithTasks/web/src/lib/performance.ts, revenue-attribution.ts, FINANCE-DEFINITIONS.md; MOCKUP-ALLIANCE.html (phần "Hiệu suất & tăng trưởng"). Nhánh feature/p6-hieu-suat.
 
 1. Từ điển chỉ số: src/lib/metrics/definitions.ts (công thức, nguồn, phân bổ, làm tròn) + docs/doi-tac/TU-DIEN-CHI-SO.md. Dùng lớp phân bổ doanh số chung — một người kiêm hai vai trò không bị cộng hai lần (T26). Kiểm tra bất biến: tổng từng người = số đội = số toàn hệ thống, phần chưa phân bổ hiện riêng.
 2. /hieu-suat với thanh ống kính Của tôi / Đội tôi / Toàn hệ thống — chỉ hiện ống kính mà phạm vi cho phép; dữ liệu lọc bằng scopeWhere ở server.
 3. Biểu đồ (recharts): xu hướng 12 tháng + cùng kỳ năm trước, thẻ tăng trưởng MoM/YoY/TB 3 tháng/dự phóng (T28), thanh mục tiêu, cột chồng đóng góp đội, thác nước lợi nhuận, cohort khách, phân vị ẩn danh cho nhân viên (T29). Chỉ số kết quả luôn đi kèm chỉ số chất lượng. Mọi điểm bấm được để mở giao dịch gốc.
 4. /hieu-suat/muc-tieu: đặt mục tiêu tháng theo người/đội/chương trình; cảnh báo sớm gửi đúng người theo phạm vi.
-5. /hieu-suat/thu-nhap: tính thu nhập ban điều hành và nhân sự cố định bằng mechanism (3 × 10% doanh số tổng; kế toán 20tr + 2%; truyền thông 8tr + 2% theo D16) mỗi kỳ (T27); mỗi người xem của mình; kế toán lập; khoản của giám đốc do giám đốc khác duyệt; cổ đông xem theo D15; đối tác 2%/5% chỉ thấy tổng trong Phòng dữ liệu kỳ.
+5. /hieu-suat/thu-nhap: tính thu nhập ban điều hành và nhân sự cố định bằng mechanism (3 × 10% doanh số tổng; kế toán 20tr + 2%; truyền thông 8tr + 2% DOANH SỐ CÁ NHÂN từng người theo D16/D16a — cần trường nguồn khách ghi nhận cho nhân sự truyền thông, mỗi khoản thực thu chỉ gắn 1 người) mỗi kỳ (T27, T27b); mỗi người xem của mình; kế toán lập; khoản của giám đốc do giám đốc khác duyệt; cổ đông xem theo D15; đối tác 2%/5% chỉ thấy tổng trong Phòng dữ liệu kỳ.
 6. Không bảng xếp hạng công khai theo thu nhập; bảng vinh danh (nếu bật) xếp theo chỉ số chất lượng.
 
 Test T26–T29 xanh + test mỗi vai trò mở /hieu-suat chỉ thấy đúng phạm vi. tsc + vitest + CHANGELOG + bàn giao. Commit, KHÔNG push. Ảnh chụp /hieu-suat dưới góc nhìn: nhân viên, trưởng nhóm, ban điều hành, cổ đông.
