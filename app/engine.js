@@ -1,0 +1,647 @@
+/* =====================================================================================
+   BỘ MÁY NGHIỆP VỤ — Trungtamdalieu
+   - Tiền: VND số nguyên. Nhân-chia dùng BigInt (mulDivFloor) để không sai số.
+   - Sổ cái chỉ ghi thêm: thanh toán, ví, hoa hồng, hoàn tiền không bao giờ bị xoá; sửa sai bằng bút toán đảo.
+   - Phân quyền kiểm ở đây (need()), không chỉ ẩn nút trên giao diện.
+   - Hai người cho việc nhạy cảm: người lập ≠ người duyệt (lô hoa hồng, bảng lương, đề nghị thanh toán).
+   - Tháng đã chốt sổ: không ghi thêm tiền vào tháng đó.
+   Chạy được cả trong trình duyệt (window.HP) và Node (require) để kiểm thử tự động.
+   ===================================================================================== */
+(function (root) {
+  "use strict";
+  const CAT = root.CATALOG || (typeof require !== "undefined" ? require("./catalog.js") : null);
+  const PKG_PRICE = 15000000, ENTITLEMENT = 30000000;
+
+  // ---------------- nhân sự & vai trò ----------------
+  const STAFF = [
+    { id: "lam", name: "BS. Lê Đình Lam", role: "ADMIN", label: "Giám đốc chuyên môn & pháp lý", team: "BGD", pctBps: 1000, base: 0 },
+    { id: "van", name: "Lê Vân", role: "ADMIN", label: "Founder — sản phẩm & phân phối", team: "BGD", pctBps: 1000, base: 0 },
+    { id: "quyen", name: "Nguyễn Quyên", role: "ADMIN", label: "Giám đốc đào tạo & vận hành", team: "BGD", pctBps: 1000, base: 0 },
+    { id: "bich", name: "Bích", role: "MANAGER", label: "Kế toán tổng", team: "KT", pctBps: 200, base: 20000000 },
+    { id: "hoa", name: "Lễ tân Hoa", role: "RECEPTION", label: "Lễ tân", team: "QUAY", base: 7000000 },
+    { id: "ha", name: "Thu Hà", role: "LEAD", label: "Trưởng nhóm Tư vấn 1", team: "TV1", base: 10000000 },
+    { id: "maianh", name: "Mai Anh", role: "CONSULTANT", label: "Tư vấn viên", team: "TV1", base: 7000000 },
+    { id: "huy", name: "Đức Huy", role: "CONSULTANT", label: "Tư vấn viên", team: "TV1", base: 7000000 },
+    { id: "bao", name: "Quốc Bảo", role: "LEAD", label: "Trưởng nhóm Tư vấn 2", team: "TV2", base: 10000000 },
+    { id: "linh", name: "Khánh Linh", role: "CONSULTANT", label: "Tư vấn viên", team: "TV2", base: 7000000 },
+    { id: "bsminh", name: "BS. Trần Minh", role: "DOCTOR", label: "Bác sĩ da liễu", team: "BS", base: 25000000 },
+    { id: "bsthu", name: "BS. Phạm Thu", role: "DOCTOR", label: "Bác sĩ da liễu", team: "BS", base: 25000000 },
+    { id: "nga", name: "KTV Thanh Nga", role: "TECH", label: "Kỹ thuật viên", team: "KTV", base: 6500000 },
+    { id: "tam", name: "KTV Minh Tâm", role: "TECH", label: "Kỹ thuật viên", team: "KTV", base: 6500000 },
+    { id: "baongoc", name: "Bảo Ngọc", role: "MEDIA", label: "Truyền thông — điều phối", team: "TT", pctBps: 200, base: 8000000 },
+    { id: "duong", name: "Dương", role: "MEDIA", label: "Truyền thông — quay dựng", team: "TT", pctBps: 200, base: 8000000 },
+    { id: "tuan", name: "Tuấn", role: "MEDIA", label: "Truyền thông — quay dựng", team: "TT", pctBps: 200, base: 8000000 },
+    { id: "codong", name: "Cổ đông bệnh viện", role: "SHAREHOLDER", label: "Chỉ xem, không sửa" },
+    { id: "kh-hanh", name: "Nguyễn Thị Hạnh", role: "PARTNER", label: "Khách hàng / Đối tác", partnerName: "Nguyễn Thị Hạnh" },
+    { id: "kh-binh", name: "Trần Văn Bình", role: "PARTNER", label: "Khách hàng / Đối tác", partnerName: "Trần Văn Bình" }
+  ];
+  const TEAMS = { TV1: "Nhóm Tư vấn 1", TV2: "Nhóm Tư vấn 2", QUAY: "Quầy lễ tân", BS: "Bác sĩ", KTV: "Kỹ thuật viên" };
+  const ROLE_LABEL = { ADMIN: "Ban giám đốc", MANAGER: "Kế toán", RECEPTION: "Lễ tân", LEAD: "Trưởng nhóm", CONSULTANT: "Tư vấn viên", DOCTOR: "Bác sĩ", TECH: "Kỹ thuật viên", MEDIA: "Truyền thông", SHAREHOLDER: "Cổ đông (chỉ xem)", PARTNER: "Khách hàng / Đối tác" };
+  const FRONT = ["ADMIN", "RECEPTION", "LEAD", "CONSULTANT"];
+  const CAN = {
+    intake: FRONT, appt: FRONT, apptStatus: [...FRONT, "DOCTOR", "TECH"],
+    treatOpen: [...FRONT, "DOCTOR"], treatLine: ["ADMIN", "LEAD", "CONSULTANT", "DOCTOR"], session: ["ADMIN", "DOCTOR", "TECH"],
+    pay: [...FRONT, "MANAGER"], refund: ["ADMIN", "MANAGER"],
+    sell: FRONT, collect: [...FRONT, "MANAGER"], select: FRONT, prescribe: ["DOCTOR"], redeem: FRONT, end: ["ADMIN", "MANAGER"],
+    reconcile: ["ADMIN", "MANAGER"], batchCreate: ["ADMIN", "MANAGER"], batchApprove: ["ADMIN"], batchPay: ["ADMIN", "MANAGER"],
+    expenseCreate: ["ADMIN", "MANAGER", "RECEPTION"], expenseApprove: ["ADMIN"], expensePay: ["ADMIN", "MANAGER"],
+    payrollCreate: ["ADMIN", "MANAGER"], payrollApprove: ["ADMIN"], closeMonth: ["ADMIN"], settings: ["ADMIN"],
+    care: FRONT, activity: ["ADMIN"], seeMoney: [...FRONT, "MANAGER", "SHAREHOLDER"]
+  };
+  const SELLERS = ["hoa", "ha", "maianh", "huy", "bao", "linh"];
+
+  // ---------------- tiện ích ngày & tiền ----------------
+  const pad = n => String(n).padStart(2, "0");
+  function mulDivFloor(a, b, c) { return Number((BigInt(Math.round(a)) * BigInt(Math.round(b))) / BigInt(Math.round(c))); }
+  function parseD(s) { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); }
+  function fmtD(dt) { return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`; }
+  function addDays(s, n) { const d = parseD(s); d.setUTCDate(d.getUTCDate() + n); return fmtD(d); }
+  function addMonths(s, n) { const d = parseD(s); const day = d.getUTCDate(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + n); const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate(); d.setUTCDate(Math.min(day, last)); return fmtD(d); }
+  const monthOf = s => s.slice(0, 7);
+  const nextMonth = m => addMonths(m + "-01", 1).slice(0, 7);
+  const prevMonth = m => addMonths(m + "-01", -1).slice(0, 7);
+  function daysBetween(a, b) { return Math.round((parseD(b) - parseD(a)) / 86400000); }
+  function monthsBetween(a, b) { const A = parseD(a), B = parseD(b); let m = (B.getUTCFullYear() - A.getUTCFullYear()) * 12 + B.getUTCMonth() - A.getUTCMonth(); if (B.getUTCDate() < A.getUTCDate()) m--; return m; }
+  const HOLIDAYS = new Set(["2026-01-01", "2026-02-16", "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20", "2026-04-27", "2026-04-30", "2026-05-01", "2026-09-01", "2026-09-02", "2027-01-01", "2027-02-04", "2027-02-05", "2027-02-08", "2027-02-09", "2027-02-10", "2027-04-16", "2027-04-30", "2027-05-03", "2027-09-02", "2027-09-03"]);
+  function isWorkingDay(s) { const w = parseD(s).getUTCDay(); return w !== 0 && w !== 6 && !HOLIDAYS.has(s); }
+  function addWorkingDays(s, n) { let d = s, k = 0; while (k < n) { d = addDays(d, 1); if (isWorkingDay(d)) k++; } return d; }
+  function workingDaysBetween(a, b) { let d = a, k = 0; while (d < b) { d = addDays(d, 1); if (isWorkingDay(d)) k++; } return k; }
+  function vnd(n) { return (n < 0 ? "−" : "") + Math.abs(Math.round(n)).toLocaleString("vi-VN"); }
+  function vnDate(s) { if (!s) return "—"; const [y, m, d] = s.split("-"); return `${d}/${m}/${y}`; }
+  function maskPhone(last5) { return "***" + String(last5).slice(-3); }
+
+  // ---------------- công thức thuần (đặc tả mục 6.3) ----------------
+  const F = {
+    refundUnused: bal => mulDivFloor(PKG_PRICE, Math.max(0, bal), ENTITLEMENT),                                       // F1
+    pct: (base, bps) => mulDivFloor(Math.max(0, base), bps, 10000),                                                    // F3 & các tỷ lệ
+    settle2B: ({ paid, usedValue, bonusOwed = 0 }) => paid - mulDivFloor(usedValue, 500000000, 1500000000) + bonusOwed,  // F7
+    settle5: ({ paid, owed = 0, received, totalValue = 1800000000, direct = 0 }) => paid + owed - mulDivFloor(received, 570000000, totalValue) - direct, // F8
+    profitShare: ({ bps, profit, activeDays, periodDays }) => profit <= 0 ? 0 : mulDivFloor(mulDivFloor(profit, bps, 10000), activeDays, periodDays) // F6
+  };
+  function evaluateMaintenance(months, required) {
+    let streak = 0; const out = [];
+    for (const m of months) {
+      if (m.planGiven === false || m.excused) { out.push({ status: "KHONG_TINH", note: "Bệnh viện không giao kế hoạch / tạm nghỉ đã duyệt — tháng này không tính" }); continue; }
+      if (m.activities < 1) { streak++; out.push(streak >= 2 ? { status: "MO_VU_VIEC", note: "2 tháng liên tiếp thiếu nhiệm vụ → mở vụ việc, 10 ngày làm việc giải trình" } : { status: "WARNED", note: "Thiếu nhiệm vụ tháng thứ 1 → soạn thông báo nhắc" }); }
+      else { streak = 0; out.push(m.contracts < required ? { status: "NHAC", note: "Thiếu hợp đồng nhưng có nhiệm vụ → chỉ nhắc" } : { status: "DAT", note: "Đạt cả 2 vòng" }); }
+    }
+    return out;
+  }
+  function terminationDecisionAllowed(noticeDate, explanationDate) {
+    const deadline = addWorkingDays(noticeDate, 10);
+    if (explanationDate && explanationDate <= deadline) return { allowed: false, deadline, reason: "Có giải trình trong hạn" };
+    return { allowed: true, deadline, reason: explanationDate ? "Giải trình nộp sau hạn" : "Không giải trình" };
+  }
+
+  function defaultSettings() {
+    return {
+      version: 1, referralFlat: 3000000, addonEnabled: true, addonBps: 1200, revenueScope: "PROGRAM",
+      staff: { consultBps: 500, doctorBps: 800, techFee: 50000, pkgSaleBonus: 0 },
+      network: { enabled: false, licenseNo: "", licenseDate: "", lawyerConfirmed: false, levels: [{ level: 2, bps: 500, minChildContracts: 50, minMonths: 3 }, { level: 3, bps: 0, minChildContracts: 50, minMonths: 3 }] }
+    };
+  }
+  function emptyState(today) {
+    return { v: 3, today: today || "2026-11-20", actorId: "hoa", seq: {}, settings: defaultSettings(), customers: [], appointments: [], treatments: [], sessions: [], payments: [], partners: [], contracts: [], pkgPayments: [], wallet: [], selections: [], commissions: [], batches: [], requests: [], payrollRuns: [], periods: [], careLogs: [], seats: { s2: [], s5: [] }, activities: [], audit: [], guide: null };
+  }
+  let _uid = 0;
+  function uid(p) { _uid++; return p + Date.now().toString(36).slice(-4) + _uid.toString(36) + Math.random().toString(36).slice(2, 5); }
+
+  class Store {
+    constructor(state) { this.s = state; }
+    get today() { return this.s.today; }
+    get cfg() { return this.s.settings; }
+    actor() { return STAFF.find(x => x.id === this.s.actorId) || STAFF[0]; }
+    staff(id) { return STAFF.find(x => x.id === id); }
+    can(a) { return (CAN[a] || []).includes(this.actor().role); }
+    need(a) { if (!this.can(a)) { this.log("TỪ CHỐI", `${this.actor().name} không có quyền "${a}"`); throw new Error(`${this.actor().name} (${ROLE_LABEL[this.actor().role]}) không có quyền thao tác này.`); } }
+    log(action, detail) { this.s.audit.unshift({ at: this.today, actor: this.actor().name, action, detail }); if (this.s.audit.length > 600) this.s.audit.length = 600; }
+    code(kind, prefix, w) { this.s.seq[kind] = (this.s.seq[kind] || 0) + 1; return prefix + String(this.s.seq[kind]).padStart(w, "0"); }
+    isClosed(m) { return this.s.periods.some(p => p.month === m && !p.reopenedAt); }
+    assertOpen(date) { if (this.isClosed(monthOf(date))) throw new Error(`Tháng ${monthOf(date)} đã chốt sổ — không ghi thêm tiền vào tháng này.`); }
+
+    // ================= KHÁCH HÀNG =================
+    customer(id) { return this.s.customers.find(c => c.id === id); }
+    addCustomer(o) {
+      this.need("intake");
+      const name = String(o.name || "").trim(), last5 = String(o.last5 || "").trim();
+      if (name.length < 2) throw new Error("Nhập họ tên khách.");
+      if (!/^\d{5}$/.test(last5)) throw new Error("Nhập đúng 5 số cuối SĐT.");
+      if (!o.consent) throw new Error("Khách cần đồng ý cho trung tâm lưu và xử lý thông tin cá nhân.");
+      const dup = this.s.customers.find(c => c.last5 === last5 && c.name.toLowerCase() === name.toLowerCase());
+      if (dup) throw new Error(`Đã có hồ sơ ${dup.code} trùng tên và 5 số cuối SĐT.`);
+      let ref = null;
+      if (o.referralCode) { ref = this.partnerByCode(o.referralCode); if (!ref) throw new Error(`Không tìm thấy mã đối tác ${o.referralCode}.`); }
+      const c = { id: uid("kh"), code: this.code("cus", "KH", 5), name, last5, gender: o.gender || "F", dob: o.dob || "", skinType: o.skinType || "", concerns: o.concerns || [], allergies: o.allergies || "", note: o.note || "", source: ref ? "PARTNER" : (o.source || "WALK_IN"), referrerPartnerId: ref ? ref.id : null, createdAt: o.date || this.today, createdBy: this.actor().id, consentAt: o.date || this.today };
+      this.s.customers.push(c);
+      this.log("TIẾP NHẬN", `${c.code} ${name} (${maskPhone(last5)})${ref ? ` · giới thiệu: ${this.partnerName(ref.id)}` : ""}`);
+      return c;
+    }
+    findCustomers(q) { q = String(q || "").trim().toLowerCase(); if (!q) return this.s.customers.slice(); return this.s.customers.filter(c => c.name.toLowerCase().includes(q) || c.last5.endsWith(q) || c.code.toLowerCase() === q); }
+
+    // ================= LỊCH HẸN =================
+    addAppointment({ customerId, date, time, type, note, staffId }) {
+      this.need("appt");
+      if (!this.customer(customerId)) throw new Error("Chọn khách hàng.");
+      if (!date || date < this.today) throw new Error("Ngày hẹn phải từ hôm nay trở đi.");
+      if (!/^\d{2}:\d{2}$/.test(time || "")) throw new Error("Nhập giờ hẹn dạng 09:30.");
+      const a = { id: uid("lh"), customerId, date, time, type: type || "SERVICE", note: note || "", staffId: staffId || null, status: "BOOKED", by: this.actor().id };
+      this.s.appointments.push(a); this.log("ĐẶT LỊCH", `${this.customer(customerId).name} · ${vnDate(date)} ${time}`); return a;
+    }
+    setApptStatus(id, status) {
+      this.need("apptStatus");
+      const a = this.s.appointments.find(x => x.id === id); if (!a) throw new Error("Không thấy lịch hẹn.");
+      const flow = { BOOKED: ["ARRIVED", "CANCELLED", "NO_SHOW"], ARRIVED: ["DONE", "CANCELLED"] };
+      if (!(flow[a.status] || []).includes(status)) throw new Error("Không chuyển được trạng thái này.");
+      a.status = status; this.log("LỊCH HẸN", `${this.customer(a.customerId).name} → ${status}`);
+    }
+
+    // ================= HỒ SƠ ĐIỀU TRỊ =================
+    treatment(id) { return this.s.treatments.find(t => t.id === id); }
+    openTreatment(customerId, { consultantId, doctorId, note, kind } = {}) {
+      this.need("treatOpen");
+      if (!this.customer(customerId)) throw new Error("Không thấy khách hàng.");
+      const t = { id: uid("hs"), code: this.code("tr", "HS", 5), customerId, openedAt: this.today, consultantId: consultantId || (["LEAD", "CONSULTANT"].includes(this.actor().role) ? this.actor().id : null), doctorId: doctorId || (this.actor().role === "DOCTOR" ? this.actor().id : null), status: "OPEN", lines: [], note: note || "", kind: kind || "NORMAL" };
+      this.s.treatments.push(t); this.log("MỞ HỒ SƠ", `${t.code} · ${this.customer(customerId).name}`); return t;
+    }
+    addLine(tid, { code, qty = 1, discount = 0 }) {
+      this.need("treatLine");
+      const t = this.treatment(tid); const svc = CAT.itemByCode(code);
+      if (!t || t.status !== "OPEN") throw new Error("Hồ sơ không mở.");
+      if (!svc || !svc.price) throw new Error("Chọn dịch vụ.");
+      qty = Math.max(1, Math.round(qty)); discount = Math.round(discount || 0);
+      const gross = svc.price * qty; if (discount < 0 || discount > gross) throw new Error("Giảm giá không hợp lệ.");
+      const l = { id: uid("dv"), code, name: svc.name, unitPrice: svc.price, qty, discount, finalPrice: gross - discount, sessionsTotal: svc.unit ? svc.sessions : svc.sessions * qty, sessionsDone: 0, walletEntryId: null, addedBy: this.actor().id, at: this.today };
+      t.lines.push(l); this.log("THÊM DỊCH VỤ", `${t.code} · ${l.name} · ${vnd(l.finalPrice)}đ`); return l;
+    }
+    removeLine(tid, lineId) {
+      this.need("treatLine");
+      const t = this.treatment(tid); const l = t.lines.find(x => x.id === lineId);
+      if (!l) throw new Error("Không thấy dòng dịch vụ.");
+      if (l.walletEntryId) throw new Error("Dòng trừ ví không xoá được — dùng đảo bút toán ví.");
+      if (l.sessionsDone > 0) throw new Error("Dịch vụ đã làm buổi nào đó — không xoá.");
+      const after = this.sumTreatment(t).total - l.finalPrice;
+      if (after < this.sumTreatment(t).paid) throw new Error("Xoá dòng này làm tổng thấp hơn số khách đã trả — hoàn tiền trước.");
+      t.lines = t.lines.filter(x => x.id !== lineId); this.log("BỎ DỊCH VỤ", `${t.code} · ${l.name}`);
+    }
+    sumTreatment(t) { const total = t.lines.reduce((a, l) => a + l.finalPrice, 0); const paid = this.s.payments.filter(p => p.treatmentId === t.id).reduce((a, p) => a + p.amount, 0); return { total, paid, debt: Math.max(0, total - paid) }; }
+    addSession(tid, lineId, { techId, note } = {}) {
+      this.need("session");
+      const t = this.treatment(tid); const l = t && t.lines.find(x => x.id === lineId);
+      if (!l) throw new Error("Không thấy dịch vụ.");
+      if (l.sessionsDone >= l.sessionsTotal) throw new Error("Đã làm đủ số buổi của dịch vụ này.");
+      l.sessionsDone++;
+      const se = { id: uid("bu"), treatmentId: tid, lineId, at: this.today, techId: techId || (this.actor().role === "TECH" ? this.actor().id : null), doctorId: this.actor().role === "DOCTOR" ? this.actor().id : t.doctorId, note: note || "", no: l.sessionsDone };
+      this.s.sessions.push(se);
+      if (t.lines.every(x => x.sessionsDone >= x.sessionsTotal) && this.sumTreatment(t).debt === 0) t.status = "DONE";
+      this.log("GHI BUỔI", `${t.code} · ${l.name} · buổi ${l.sessionsDone}/${l.sessionsTotal}`); return se;
+    }
+    referrerFor(customerId) { const c = this.customer(customerId); return c && c.referrerPartnerId ? c.referrerPartnerId : null; }
+    pay(tid, amount, { method = "CASH", nonce } = {}) {
+      this.need("pay"); this.assertOpen(this.today);
+      const t = this.treatment(tid); amount = Math.round(Number(amount) || 0);
+      if (!t) throw new Error("Không thấy hồ sơ.");
+      if (nonce && this.s.payments.some(p => p.nonce === nonce)) throw new Error("Khoản thu này đã ghi (chống bấm hai lần).");
+      const { debt } = this.sumTreatment(t);
+      if (amount <= 0) throw new Error("Số tiền phải lớn hơn 0.");
+      if (amount > debt) throw new Error(`Chỉ còn nợ ${vnd(debt)}đ.`);
+      const p = { id: uid("pt"), code: this.code("pt", "PT", 6), treatmentId: tid, customerId: t.customerId, amount, method, at: this.today, by: this.actor().id, kind: "PAYMENT", nonce: nonce || null };
+      this.s.payments.push(p);
+      this.log("THU TIỀN", `${t.code} · ${vnd(amount)}đ · ${p.code}`);
+      const ref = this.referrerFor(t.customerId); const owner = this.s.partners.find(x => x.customerId === t.customerId);
+      if (this.cfg.addonEnabled && ref && !(owner && owner.id === ref)) {
+        this.s.commissions.push({ id: uid("hh"), partnerId: ref, type: "ADDON_PCT", state: "PENDING", amount: F.pct(amount, this.cfg.addonBps), basis: amount, rateBps: this.cfg.addonBps, sourceRef: p.id, paymentId: p.id, contractId: null, customerId: t.customerId, period: monthOf(this.today), at: this.today, note: `Dịch vụ ngoài gói ${t.code}`, ver: this.cfg.version });
+      }
+      if (t.lines.every(x => x.sessionsDone >= x.sessionsTotal) && this.sumTreatment(t).debt === 0) t.status = "DONE";
+      return p;
+    }
+    refundPayment(paymentId, amount, reason) {
+      this.need("refund"); this.assertOpen(this.today);
+      const p = this.s.payments.find(x => x.id === paymentId && x.kind === "PAYMENT"); if (!p) throw new Error("Không thấy khoản thu.");
+      const already = -this.s.payments.filter(x => x.reversalOf === p.id).reduce((a, x) => a + x.amount, 0);
+      amount = Math.round(Number(amount) || 0);
+      if (!reason || String(reason).trim().length < 3) throw new Error("Nhập lý do hoàn tiền.");
+      if (amount <= 0 || amount > p.amount - already) throw new Error(`Hoàn tối đa ${vnd(p.amount - already)}đ.`);
+      const r = { id: uid("pt"), code: this.code("pc", "PC", 6), treatmentId: p.treatmentId, customerId: p.customerId, amount: -amount, method: p.method, at: this.today, by: this.actor().id, kind: "REFUND", reversalOf: p.id, reason };
+      this.s.payments.push(r);
+      for (const e of this.s.commissions.filter(e => e.paymentId === p.id && e.amount > 0 && e.type === "ADDON_PCT")) {
+        const back = mulDivFloor(e.amount, amount, p.amount);
+        if (["PENDING", "ELIGIBLE"].includes(e.state) && !e.batchId) this.s.commissions.push({ id: uid("hh"), partnerId: e.partnerId, type: "CLAWBACK", state: e.state, amount: -back, sourceRef: r.id, reversalOf: e.id, paymentId: null, period: e.period, at: this.today, note: `Hoàn tiền ${p.code} — thu hồi trước khi trả` });
+        else this.s.commissions.push({ id: uid("hh"), partnerId: e.partnerId, type: "OFFSET", state: "ELIGIBLE", amount: -back, sourceRef: r.id, reversalOf: e.id, paymentId: null, period: nextMonth(monthOf(this.today)), at: this.today, note: `Hoàn tiền ${p.code} sau khi đã trả — bù trừ kỳ sau` });
+      }
+      this.log("HOÀN TIỀN", `${p.code} · ${vnd(amount)}đ · ${reason}`); return r;
+    }
+
+    // ================= GÓI 15 TRIỆU & VÍ =================
+    partner(id) { return this.s.partners.find(p => p.id === id); }
+    partnerName(id) { const p = this.partner(id); return p ? this.customer(p.customerId).name : "—"; }
+    partnerByCode(code) { return this.s.partners.find(p => p.code.toUpperCase() === String(code || "").trim().toUpperCase()); }
+    partnerOfCustomer(cid) { return this.s.partners.find(p => p.customerId === cid); }
+    contract(id) { return this.s.contracts.find(c => c.id === id); }
+    newPartnerCode() { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let c; do { c = "HP-" + Array.from({ length: 4 }, () => A[Math.floor(Math.random() * A.length)]).join(""); } while (this.s.partners.some(p => p.code === c)); return c; }
+    paid(cid) { return this.s.pkgPayments.filter(p => p.contractId === cid).reduce((a, p) => a + p.amount, 0); }
+    balance(cid) { return this.s.wallet.filter(w => w.contractId === cid).reduce((a, w) => a + w.amount, 0); }
+    used(cid) { return -this.s.wallet.filter(w => w.contractId === cid && w.kind === "REDEEM").reduce((a, w) => a + w.amount, 0); }
+    isValidForKpi(c) { return !!c.fullyPaidAt && c.status !== "CANCELLED" && c.countsForKpi; }
+    sell({ customerId, buyerName, last5, referralCode, pin, firstPayment, date }) {
+      this.need("sell");
+      const d = date || this.today;
+      if (!/^\d{6}$/.test(String(pin || ""))) throw new Error("Khách tự đặt PIN 6 số để xác nhận mỗi lần dùng quyền lợi.");
+      let cus = customerId ? this.customer(customerId) : null;
+      if (!cus) {
+        buyerName = String(buyerName || "").trim(); last5 = String(last5 || "").trim();
+        if (buyerName.length < 2) throw new Error("Nhập họ tên người mua.");
+        if (!/^\d{5}$/.test(last5)) throw new Error("Nhập đúng 5 số cuối SĐT.");
+        cus = this.s.customers.find(c => c.last5 === last5 && c.name.toLowerCase() === buyerName.toLowerCase());
+        if (!cus) { const prevRole = this.s.actorId; cus = { id: uid("kh"), code: this.code("cus", "KH", 5), name: buyerName, last5, gender: "F", dob: "", skinType: "", concerns: [], allergies: "", note: "", source: referralCode ? "PARTNER" : "WALK_IN", referrerPartnerId: null, createdAt: d, createdBy: prevRole, consentAt: d }; this.s.customers.push(cus); }
+      }
+      let owner = this.partnerOfCustomer(cus.id);
+      let attributed = null;
+      if (referralCode) { attributed = this.partnerByCode(referralCode); if (!attributed) throw new Error(`Không tìm thấy mã đối tác ${referralCode}.`); }
+      if (owner && attributed && owner.id === attributed.id) throw new Error("Người mua không được tự giới thiệu chính mình (Q7).");
+      const repeat = !!owner && this.s.contracts.some(c => c.ownerPartnerId === owner.id && c.status !== "CANCELLED");
+      if (!owner) { owner = { id: uid("dt"), code: this.newPartnerCode(), customerId: cus.id, joinedAt: d, sponsorId: attributed ? attributed.id : null }; this.s.partners.push(owner); }
+      if (attributed && !cus.referrerPartnerId) cus.referrerPartnerId = attributed.id; // Q3: giữ người giới thiệu cũ nếu đã có
+      const c = { id: uid("hd"), code: this.code("contract", "GOI-", 6), ownerPartnerId: owner.id, customerId: cus.id, attributedPartnerId: attributed ? attributed.id : null, soldById: this.actor().id, signedAt: d, fullyPaidAt: null, expiresAt: null, status: "SIGNED", pin: String(pin), countsForKpi: !repeat, endedAt: null, refundDueAt: null, ver: this.cfg.version };
+      this.s.contracts.push(c);
+      this.log("BÁN GÓI", `${c.code} · ${cus.name}${attributed ? ` · giới thiệu: ${this.partnerName(attributed.id)} (${attributed.code})` : ""}${repeat ? " · gói thứ 2, không tính KPI (Q2)" : ""}`);
+      if (firstPayment > 0) this.collect(c.id, firstPayment, d);
+      return c;
+    }
+    collect(cid, amount, date) {
+      this.need("collect"); const d = date || this.today; this.assertOpen(d);
+      const c = this.contract(cid); amount = Math.round(Number(amount) || 0);
+      if (!c || c.status !== "SIGNED") throw new Error("Hợp đồng không ở trạng thái thu tiền.");
+      const due = PKG_PRICE - this.paid(cid);
+      if (amount <= 0) throw new Error("Số tiền phải lớn hơn 0.");
+      if (amount > due) throw new Error(`Chỉ còn phải thu ${vnd(due)}đ.`);
+      this.s.pkgPayments.push({ id: uid("tg"), code: this.code("pt", "PT", 6), contractId: cid, kind: "PAYMENT", amount, at: d, by: this.actor().id });
+      this.log("THU TIỀN GÓI", `${c.code} · ${vnd(amount)}đ`);
+      if (this.paid(cid) === PKG_PRICE) this.activate(c, d);
+    }
+    activate(c, d) {
+      if (c.fullyPaidAt) throw new Error("Hợp đồng đã kích hoạt.");
+      c.fullyPaidAt = d; c.status = "ACTIVE"; c.expiresAt = addMonths(d, 12);
+      this.s.wallet.push({ id: uid("vi"), contractId: c.id, kind: "GRANT", amount: ENTITLEMENT, label: "Kích hoạt ví quyền lợi", at: d, by: this.actor().id });
+      if (c.attributedPartnerId) {
+        if (this.s.commissions.some(e => e.contractId === c.id && e.type === "REFERRAL_FLAT" && e.amount > 0)) throw new Error("Hợp đồng đã có hoa hồng giới thiệu.");
+        this.s.commissions.push({ id: uid("hh"), partnerId: c.attributedPartnerId, type: "REFERRAL_FLAT", level: 1, state: "PENDING", amount: this.cfg.referralFlat, basis: PKG_PRICE, sourceRef: c.id, contractId: c.id, period: monthOf(d), at: d, note: `Giới thiệu ${c.code}`, ver: this.cfg.version });
+        this.networkBonus(c, d);
+      }
+      this.log("KÍCH HOẠT VÍ", `${c.code} · +30.000.000đ · hạn ${vnDate(c.expiresAt)}`);
+    }
+    // ---- mạng lưới nhiều tầng: chỉ chạy khi đã bật bằng giấy chứng nhận ----
+    networkBonus(c, d) {
+      const net = this.cfg.network; if (!net.enabled || !net.licenseNo) return [];
+      const out = []; let child = this.partner(c.attributedPartnerId);
+      for (const lv of net.levels) {
+        const anc = child && child.sponsorId ? this.partner(child.sponsorId) : null;
+        if (!anc || !lv.bps) break;
+        const okCount = this.kpiCount(child.id) >= lv.minChildContracts, okMonths = monthsBetween(child.joinedAt, d) >= lv.minMonths;
+        if (okCount && okMonths && anc.id !== c.ownerPartnerId) {
+          const e = { id: uid("hh"), partnerId: anc.id, type: "NETWORK", level: lv.level, state: "PENDING", amount: F.pct(PKG_PRICE, lv.bps), basis: PKG_PRICE, rateBps: lv.bps, sourceRef: c.id, contractId: c.id, period: monthOf(d), at: d, note: `Thưởng tuyến tầng ${lv.level}: ${c.code} qua ${this.partnerName(child.id)}`, ver: this.cfg.version };
+          this.s.commissions.push(e); out.push(e);
+        }
+        child = anc;
+      }
+      return out;
+    }
+    requestSecondLevel() { const n = this.cfg.network; if (!n.enabled || !n.licenseNo) { this.log("CHẶN THƯỞNG TUYẾN", "Chưa bật thưởng nhiều tầng (chưa có giấy chứng nhận) — từ chối"); return { ok: false, reason: "Chưa bật thưởng nhiều tầng: cần số giấy chứng nhận đăng ký bán hàng đa cấp và xác nhận của luật sư." }; } return { ok: true }; }
+    setNetwork(o) {
+      this.need("settings");
+      const n = this.cfg.network, before = JSON.stringify(n);
+      if (o.enabled) {
+        if (!String(o.licenseNo || "").trim()) throw new Error("Nhập số giấy chứng nhận đăng ký hoạt động bán hàng đa cấp trước khi bật.");
+        if (!o.lawyerConfirmed) throw new Error("Cần xác nhận đã có ý kiến luật sư bằng văn bản.");
+      }
+      n.enabled = !!o.enabled; n.licenseNo = String(o.licenseNo || "").trim(); n.licenseDate = o.licenseDate || ""; n.lawyerConfirmed = !!o.lawyerConfirmed;
+      if (Array.isArray(o.levels)) n.levels = o.levels.map((l, i) => ({ level: i + 2, bps: Math.max(0, Math.min(2000, Math.round(l.bps))), minChildContracts: Math.max(0, Math.round(l.minChildContracts)), minMonths: Math.max(0, Math.round(l.minMonths)) }));
+      this.cfg.version++;
+      this.log("CÀI ĐẶT MẠNG LƯỚI", `trước: ${before} → sau: ${JSON.stringify(n)}`);
+    }
+    setRates(o) {
+      this.need("settings");
+      const before = JSON.stringify({ r: this.cfg.referralFlat, a: this.cfg.addonBps, s: this.cfg.staff });
+      if (o.referralFlat != null) this.cfg.referralFlat = Math.max(0, Math.round(o.referralFlat));
+      if (o.addonBps != null) { const b = Math.round(o.addonBps); if (b < 1000 || b > 1500) throw new Error("Thù lao ngoài gói phải trong khoảng 10–15% theo hợp đồng."); this.cfg.addonBps = b; }
+      if (o.staff) Object.assign(this.cfg.staff, o.staff);
+      this.cfg.version++;
+      this.log("CÀI ĐẶT TỶ LỆ", `trước: ${before} → sau: ${JSON.stringify({ r: this.cfg.referralFlat, a: this.cfg.addonBps, s: this.cfg.staff })} · phiên bản ${this.cfg.version}`);
+    }
+    children(pid) { return this.s.partners.filter(p => p.sponsorId === pid); }
+    downline(pid, depth = 3) { const out = []; let lvl = [pid]; for (let k = 1; k <= depth; k++) { const next = this.s.partners.filter(p => lvl.includes(p.sponsorId)); next.forEach(p => out.push({ p, level: k })); lvl = next.map(p => p.id); if (!lvl.length) break; } return out; }
+    kpiCount(pid, month) { return this.s.contracts.filter(c => c.attributedPartnerId === pid && this.isValidForKpi(c) && (!month || monthOf(c.fullyPaidAt) === month)).length; }
+    saveSelection(cid, { bundle, options = [], extras = [] }) {
+      this.need("select");
+      const c = this.contract(cid); if (!c || c.status !== "ACTIVE") throw new Error("Chỉ lập phiếu chọn khi ví đã kích hoạt.");
+      const b = bundle ? CAT.BUNDLES.find(x => x.code === bundle) : null;
+      if (b && this.s.selections.some(s => s.contractId === cid && s.lines.some(l => l.code.startsWith("A")))) throw new Error("Hợp đồng đã chọn gói chính. Phần còn lại trong ví dùng cho dịch vụ da liễu.");
+      if (b && b.opts.length) { if (!options.length) throw new Error(`Gói ${b.code}: chọn ít nhất 1 vùng.`); if (b.pickMax && options.length > b.pickMax) throw new Error(`Gói ${b.code}: chỉ được chọn tối đa ${b.pickMax}.`); }
+      if (!b && !extras.length) throw new Error("Chưa chọn gì.");
+      const lines = [];
+      if (b) lines.push({ code: b.code, name: b.name + (options.length ? ` (${options.join(", ")})` : ""), unitValue: b.value, qty: 1, state: "CHO_BAC_SI", sessions: b.code === "A03" ? 2 : 1 });
+      for (const e of extras) { const it = CAT.itemByCode(e.code); if (!it) throw new Error("Dịch vụ không có trong danh mục."); lines.push({ code: it.code, name: it.name, unitValue: it.price, qty: Math.max(1, e.qty | 0), state: "CHO_BAC_SI", sessions: it.sessions }); }
+      const sel = { id: uid("pc"), code: this.code("pc", "PCQ", 5), contractId: cid, at: this.today, by: this.actor().id, lines, doctor: null };
+      this.s.selections.push(sel); this.log("PHIẾU CHỌN", `${c.code} · ${lines.length} mục (mong muốn của khách)`); return sel;
+    }
+    prescribe(selId, decisions) {
+      this.need("prescribe");
+      const sel = this.s.selections.find(s => s.id === selId); if (!sel) throw new Error("Không thấy phiếu chọn.");
+      sel.lines.forEach((l, i) => { const d = decisions[i]; if (l.state !== "CHO_BAC_SI" || !d) return; if (d.ok) { l.state = "DA_CHI_DINH"; l.qty = Math.max(1, d.qty | 0); } else l.state = "KHONG_CHI_DINH"; });
+      sel.doctor = this.actor().id; this.log("BÁC SĨ CHỈ ĐỊNH", `${this.contract(sel.contractId).code}`);
+    }
+    redeem(selId, idx, { pin, overageConsent, overagePaid }) {
+      this.need("redeem");
+      const sel = this.s.selections.find(s => s.id === selId); const c = this.contract(sel.contractId); const l = sel.lines[idx];
+      if (c.status !== "ACTIVE") throw new Error("Ví không còn hiệu lực.");
+      if (l.state !== "DA_CHI_DINH") throw new Error("Mục này chưa được bác sĩ chỉ định.");
+      if (String(pin) !== c.pin) { this.log("SAI PIN", c.code); throw new Error("PIN của chủ gói không đúng. Không ghi nhận."); }
+      const value = l.unitValue * l.qty, bal = this.balance(c.id);
+      if (bal <= 0) throw new Error("Ví đã hết.");
+      const fromWallet = Math.min(value, bal), over = value - fromWallet;
+      if (over > 0 && !overageConsent) throw new Error(`Vượt ví ${vnd(over)}đ — cần khách đồng ý trước khi làm (T16).`);
+      const paidOver = Math.round(overagePaid || 0); if (over > 0 && (paidOver < 0 || paidOver > over)) throw new Error("Số thu phần vượt không hợp lệ.");
+      // Ghi vào hồ sơ điều trị: dòng giá 0đ (không công nợ, không hoa hồng %), thêm dòng có giá cho phần vượt.
+      let t = this.s.treatments.find(x => x.customerId === c.customerId && x.kind === "WALLET" && x.status === "OPEN");
+      if (!t) { t = { id: uid("hs"), code: this.code("tr", "HS", 5), customerId: c.customerId, openedAt: this.today, consultantId: c.soldById, doctorId: sel.doctor, status: "OPEN", lines: [], note: `Quyền lợi gói ${c.code}`, kind: "WALLET" }; this.s.treatments.push(t); }
+      const w = { id: uid("vi"), contractId: c.id, kind: "REDEEM", amount: -fromWallet, label: l.name, itemCode: l.code, at: this.today, by: this.actor().id, treatmentId: t.id };
+      this.s.wallet.push(w);
+      t.lines.push({ id: uid("dv"), code: l.code, name: l.name + " (trừ ví)", unitPrice: 0, qty: 1, discount: 0, finalPrice: 0, listValue: fromWallet, sessionsTotal: l.sessions || 1, sessionsDone: 0, walletEntryId: w.id, addedBy: this.actor().id, at: this.today });
+      l.state = "DA_DUNG";
+      this.log("GHI NHẬN SỬ DỤNG", `${c.code} · ${l.name} · trừ ${vnd(fromWallet)}đ · còn ${vnd(this.balance(c.id))}đ · khách xác nhận PIN`);
+      if (over > 0) {
+        const nt = { id: uid("dv"), code: l.code, name: l.name + " (phần vượt ví)", unitPrice: over, qty: 1, discount: 0, finalPrice: over, sessionsTotal: 1, sessionsDone: 1, walletEntryId: null, addedBy: this.actor().id, at: this.today };
+        t.lines.push(nt); if (paidOver > 0) this.pay(t.id, paidOver, {});
+      }
+      if (this.balance(c.id) === 0) { c.status = "CONSUMED"; c.endedAt = this.today; this.log("DÙNG HẾT VÍ", c.code); }
+      return t;
+    }
+    endWithRefund(cid, reason) {
+      this.need("end"); this.assertOpen(this.today);
+      const c = this.contract(cid); if (c.status !== "ACTIVE") throw new Error("Chỉ áp dụng cho hợp đồng đang hiệu lực.");
+      const bal = this.balance(cid), refund = F.refundUnused(bal);
+      if (bal > 0) this.s.wallet.push({ id: uid("vi"), contractId: cid, kind: reason === "EXPIRED" ? "EXPIRE" : "REFUND_CONVERSION", amount: -bal, label: reason === "EXPIRED" ? "Hết hạn — quy đổi hoàn tiền" : "Chấm dứt — quy đổi hoàn tiền", at: this.today, by: this.actor().id });
+      if (refund > 0) this.s.pkgPayments.push({ id: uid("tg"), code: this.code("pc", "PC", 6), contractId: cid, kind: "REFUND", amount: -refund, at: this.today, by: this.actor().id });
+      c.status = reason === "EXPIRED" ? "EXPIRED" : "TERMINATED"; c.endedAt = this.today; c.refundDueAt = addWorkingDays(this.today, 15);
+      this.log(reason === "EXPIRED" ? "HẾT HẠN GÓI" : "CHẤM DỨT GÓI", `${c.code} · số dư ${vnd(bal)}đ → hoàn ${vnd(refund)}đ (F1) · hạn ${vnDate(c.refundDueAt)}`);
+      return refund;
+    }
+    cancel(cid) {
+      this.need("end"); this.assertOpen(this.today);
+      const c = this.contract(cid);
+      if (!["SIGNED", "ACTIVE"].includes(c.status)) throw new Error("Không huỷ được hợp đồng ở trạng thái này.");
+      if (this.used(cid) > 0) throw new Error("Ví đã dùng một phần — dùng 'Chấm dứt & hoàn phần chưa dùng'.");
+      const paid = this.paid(cid);
+      if (this.balance(cid) > 0) this.s.wallet.push({ id: uid("vi"), contractId: cid, kind: "REFUND_CONVERSION", amount: -this.balance(cid), label: "Huỷ hợp đồng", at: this.today, by: this.actor().id });
+      if (paid > 0) this.s.pkgPayments.push({ id: uid("tg"), code: this.code("pc", "PC", 6), contractId: cid, kind: "REFUND", amount: -paid, at: this.today, by: this.actor().id });
+      c.status = "CANCELLED"; c.endedAt = this.today;
+      for (const e of this.s.commissions.filter(e => e.contractId === cid && e.amount > 0 && ["REFERRAL_FLAT", "NETWORK"].includes(e.type))) {
+        if (this.s.commissions.some(x => x.reversalOf === e.id)) continue;
+        if (["PENDING", "ELIGIBLE"].includes(e.state) && !e.batchId) { e.state = "VOID"; this.s.commissions.push({ id: uid("hh"), partnerId: e.partnerId, type: "CLAWBACK", state: "VOID", amount: -e.amount, reversalOf: e.id, contractId: cid, period: e.period, at: this.today, note: `Huỷ ${c.code} trước khi trả — đảo` }); }
+        else this.s.commissions.push({ id: uid("hh"), partnerId: e.partnerId, type: "OFFSET", state: "ELIGIBLE", amount: -e.amount, reversalOf: e.id, contractId: cid, period: nextMonth(monthOf(this.today)), at: this.today, note: `Huỷ ${c.code} sau khi đã trả — bù trừ kỳ sau (D6)` });
+      }
+      this.log("HUỶ HỢP ĐỒNG", `${c.code} · hoàn ${vnd(paid)}đ`);
+    }
+
+    // ================= HOA HỒNG: ĐỐI SOÁT → LÔ → DUYỆT → CHI =================
+    reconcile(period) {
+      this.need("reconcile");
+      if (period >= monthOf(this.today)) throw new Error("Chỉ đối soát kỳ đã kết thúc.");
+      let n = 0, sum = 0;
+      for (const e of this.s.commissions) {
+        if (e.state !== "PENDING" || e.period > period) continue;
+        const c = e.contractId ? this.contract(e.contractId) : null;
+        if (c && c.status === "CANCELLED") continue;
+        e.state = "ELIGIBLE"; e.eligibleAt = this.today; n++; sum += e.amount;
+      }
+      this.log("ĐỐI SOÁT", `Kỳ ${period} · ${n} khoản → khả dụng · ${vnd(sum)}đ`); return { n, sum };
+    }
+    createBatch() {
+      this.need("batchCreate");
+      const pool = this.s.commissions.filter(e => e.state === "ELIGIBLE" && !e.batchId), byP = {};
+      pool.forEach(e => (byP[e.partnerId] = byP[e.partnerId] || []).push(e));
+      const ids = [], lines = []; let total = 0;
+      for (const [pid, es] of Object.entries(byP)) { const net = es.reduce((a, e) => a + e.amount, 0); if (net <= 0) continue; es.forEach(e => ids.push(e.id)); total += net; lines.push({ partnerId: pid, net, count: es.length }); }
+      if (!ids.length) throw new Error("Không có khoản nào đủ điều kiện (hoặc số âm lớn hơn số dương — chuyển kỳ sau).");
+      const b = { id: uid("lo"), code: this.code("batch", "LO-", 4), createdBy: this.actor().id, createdAt: this.today, approvedBy: null, status: "CHO_DUYET", entryIds: ids, total, lines, requestIds: [] };
+      ids.forEach(id => { const e = this.s.commissions.find(x => x.id === id); e.state = "IN_BATCH"; e.batchId = b.id; });
+      this.s.batches.unshift(b); this.log("LẬP LÔ CHI TRẢ", `${b.code} · ${lines.length} đối tác · ${vnd(total)}đ`); return b;
+    }
+    approveBatch(bid) {
+      this.need("batchApprove");
+      const b = this.s.batches.find(x => x.id === bid);
+      if (!b || b.status !== "CHO_DUYET") throw new Error("Lô không ở trạng thái chờ duyệt.");
+      if (b.createdBy === this.actor().id) throw new Error("Người lập lô không được tự duyệt (tách quyền hai người).");
+      b.status = "DA_DUYET"; b.approvedBy = this.actor().id; b.approvedAt = this.today;
+      b.requestIds = b.lines.map(l => { const r = { id: uid("dn"), code: this.code("dn", "DNTT-", 5), category: "HOA_HONG", payee: `${this.partnerName(l.partnerId)} (${this.partner(l.partnerId).code})`, partnerId: l.partnerId, amount: l.net, note: `Hoa hồng đối tác — lô ${b.code}`, status: "APPROVED", createdBy: b.createdBy, createdAt: b.createdAt, approvedBy: this.actor().id, approvedAt: this.today, source: { type: "BATCH", id: b.id } }; this.s.requests.push(r); return r.id; });
+      this.log("DUYỆT LÔ", `${b.code} · sinh ${b.requestIds.length} giấy đề nghị thanh toán`);
+    }
+    payBatch(bid) {
+      this.need("batchPay"); this.assertOpen(this.today);
+      const b = this.s.batches.find(x => x.id === bid);
+      if (!b || b.status !== "DA_DUYET") throw new Error("Lô phải được duyệt trước khi ghi đã chuyển.");
+      b.status = "DA_TRA"; b.paidAt = this.today;
+      b.entryIds.forEach(id => { const e = this.s.commissions.find(x => x.id === id); e.state = "PAID"; e.paidAt = this.today; });
+      b.requestIds.forEach(id => { const r = this.s.requests.find(x => x.id === id); r.status = "PAID"; r.paidAt = this.today; r.paidBy = this.actor().id; });
+      this.log("CHI HOA HỒNG", `${b.code} · ${vnd(b.total)}đ`);
+    }
+    rejectBatch(bid) {
+      this.need("batchApprove");
+      const b = this.s.batches.find(x => x.id === bid); if (!b || b.status !== "CHO_DUYET") throw new Error("Chỉ trả lại lô đang chờ duyệt.");
+      b.status = "TRA_LAI"; b.approvedBy = this.actor().id;
+      b.entryIds.forEach(id => { const e = this.s.commissions.find(x => x.id === id); e.state = "ELIGIBLE"; e.batchId = null; });
+      this.log("TRẢ LẠI LÔ", b.code);
+    }
+    earnings(pid) {
+      const es = this.s.commissions.filter(e => e.partnerId === pid && e.state !== "VOID");
+      const sum = st => es.filter(e => st.includes(e.state)).reduce((a, e) => a + e.amount, 0);
+      return { pending: sum(["PENDING"]), available: sum(["ELIGIBLE", "IN_BATCH"]), paid: sum(["PAID"]), entries: es };
+    }
+
+    // ================= ĐỀ NGHỊ THANH TOÁN / SỔ CHI =================
+    createRequest({ category, payee, amount, note }) {
+      this.need("expenseCreate");
+      amount = Math.round(Number(amount) || 0);
+      if (!category) throw new Error("Chọn hạng mục chi.");
+      if (!String(payee || "").trim()) throw new Error("Nhập người/đơn vị nhận tiền.");
+      if (amount <= 0) throw new Error("Số tiền phải lớn hơn 0.");
+      const r = { id: uid("dn"), code: this.code("dn", "DNTT-", 5), category, payee: String(payee).trim(), amount, note: note || "", status: "PENDING", createdBy: this.actor().id, createdAt: this.today };
+      this.s.requests.push(r); this.log("LẬP ĐỀ NGHỊ CHI", `${r.code} · ${vnd(amount)}đ · ${r.payee}`); return r;
+    }
+    approveRequest(id) {
+      this.need("expenseApprove");
+      const r = this.s.requests.find(x => x.id === id); if (!r || r.status !== "PENDING") throw new Error("Chứng từ không ở trạng thái chờ duyệt.");
+      if (r.createdBy === this.actor().id) throw new Error("Người lập không được tự duyệt.");
+      r.status = "APPROVED"; r.approvedBy = this.actor().id; r.approvedAt = this.today; this.log("DUYỆT CHI", r.code);
+    }
+    rejectRequest(id, reason) {
+      this.need("expenseApprove");
+      const r = this.s.requests.find(x => x.id === id); if (!r || r.status !== "PENDING") throw new Error("Chỉ từ chối chứng từ đang chờ.");
+      if (!String(reason || "").trim()) throw new Error("Nhập lý do từ chối.");
+      r.status = "REJECTED"; r.approvedBy = this.actor().id; r.rejectReason = reason; this.log("TỪ CHỐI CHI", `${r.code} · ${reason}`);
+    }
+    payRequest(id) {
+      this.need("expensePay"); this.assertOpen(this.today);
+      const r = this.s.requests.find(x => x.id === id); if (!r || r.status !== "APPROVED") throw new Error("Chứng từ phải được duyệt trước khi chi.");
+      if (r.source && r.source.type === "BATCH") throw new Error("Khoản hoa hồng chi theo lô — dùng nút 'Ghi đã chuyển' của lô.");
+      r.status = "PAID"; r.paidAt = this.today; r.paidBy = this.actor().id;
+      if (r.source && r.source.type === "PAYROLL") { const run = this.s.payrollRuns.find(x => x.id === r.source.id); if (run) { run.status = "PAID"; run.paidAt = this.today; } }
+      this.log("ĐÃ CHI", `${r.code} · ${vnd(r.amount)}đ`);
+    }
+
+    // ================= LƯƠNG NHÂN SỰ =================
+    programRevenue(m) {
+      const pk = this.s.pkgPayments.filter(p => monthOf(p.at) === m).reduce((a, p) => a + p.amount, 0);
+      const tr = this.s.payments.filter(p => monthOf(p.at) === m && (this.cfg.revenueScope === "ALL" || this.referrerFor(p.customerId) || this.partnerOfCustomer(p.customerId))).reduce((a, p) => a + p.amount, 0);
+      return pk + tr;
+    }
+    computePayroll(m) {
+      const st = this.cfg.staff, rev = Math.max(0, this.programRevenue(m));
+      return STAFF.filter(x => !["SHAREHOLDER", "PARTNER"].includes(x.role)).map(x => {
+        const trs = this.s.treatments;
+        const consultBase = this.s.payments.filter(p => monthOf(p.at) === m && trs.find(t => t.id === p.treatmentId && t.consultantId === x.id)).reduce((a, p) => a + p.amount, 0);
+        const doctorBase = this.s.payments.filter(p => monthOf(p.at) === m && trs.find(t => t.id === p.treatmentId && t.doctorId === x.id)).reduce((a, p) => a + p.amount, 0);
+        const sess = this.s.sessions.filter(s => monthOf(s.at) === m && s.techId === x.id).length;
+        const pkgs = this.s.contracts.filter(c => c.soldById === x.id && c.fullyPaidAt && monthOf(c.fullyPaidAt) === m).length;
+        const consult = ["LEAD", "CONSULTANT", "RECEPTION"].includes(x.role) ? F.pct(consultBase, st.consultBps) : 0;
+        const doctor = x.role === "DOCTOR" ? F.pct(doctorBase, st.doctorBps) : 0;
+        const tech = x.role === "TECH" ? sess * st.techFee : 0;
+        const leader = x.pctBps ? F.pct(rev, x.pctBps) : 0;
+        const pkgBonus = pkgs * (st.pkgSaleBonus || 0);
+        const base = x.base || 0;
+        return { staffId: x.id, base, consult, consultBase, doctor, doctorBase, tech, sessions: sess, leader, pkgs, pkgBonus, adjust: 0, total: base + consult + doctor + tech + leader + pkgBonus };
+      });
+    }
+    createPayrollRun(m) {
+      this.need("payrollCreate");
+      if (m >= monthOf(this.today)) throw new Error("Chỉ lập bảng lương cho tháng đã kết thúc.");
+      if (this.s.payrollRuns.some(r => r.month === m && r.status !== "REJECTED")) throw new Error(`Đã có bảng lương tháng ${m}.`);
+      const lines = this.computePayroll(m);
+      const run = { id: uid("bl"), code: this.code("bl", "BL-", 4), month: m, lines, total: lines.reduce((a, l) => a + l.total, 0), status: "DRAFT", createdBy: this.actor().id, createdAt: this.today };
+      this.s.payrollRuns.unshift(run); this.log("LẬP BẢNG LƯƠNG", `${run.code} · tháng ${m} · ${vnd(run.total)}đ`); return run;
+    }
+    adjustPayroll(runId, staffId, amount, note) {
+      this.need("payrollCreate");
+      const run = this.s.payrollRuns.find(r => r.id === runId); if (!run || run.status !== "DRAFT") throw new Error("Chỉ điều chỉnh bảng lương nháp.");
+      if (!String(note || "").trim()) throw new Error("Nhập lý do điều chỉnh.");
+      const l = run.lines.find(x => x.staffId === staffId); const before = l.adjust;
+      l.adjust = Math.round(Number(amount) || 0); l.adjustNote = note; l.total = l.base + l.consult + l.doctor + l.tech + l.leader + l.pkgBonus + l.adjust;
+      run.total = run.lines.reduce((a, x) => a + x.total, 0);
+      this.log("ĐIỀU CHỈNH LƯƠNG", `${run.code} · ${this.staff(staffId).name}: ${vnd(before)} → ${vnd(l.adjust)}đ · ${note}`);
+    }
+    approvePayroll(runId) {
+      this.need("payrollApprove");
+      const run = this.s.payrollRuns.find(r => r.id === runId); if (!run || run.status !== "DRAFT") throw new Error("Bảng lương không ở trạng thái chờ duyệt.");
+      if (run.createdBy === this.actor().id) throw new Error("Người lập bảng lương không được tự duyệt.");
+      run.status = "APPROVED"; run.approvedBy = this.actor().id; run.approvedAt = this.today;
+      const r = { id: uid("dn"), code: this.code("dn", "DNTT-", 5), category: "LUONG", payee: `Nhân sự — bảng lương ${run.month}`, amount: run.total, note: run.code, status: "APPROVED", createdBy: run.createdBy, createdAt: run.createdAt, approvedBy: this.actor().id, approvedAt: this.today, source: { type: "PAYROLL", id: run.id } };
+      this.s.requests.push(r); run.requestId = r.id; this.log("DUYỆT LƯƠNG", `${run.code} · ${vnd(run.total)}đ`);
+    }
+
+    // ================= SỔ QUỸ & CHỐT SỔ =================
+    monthSummary(m) {
+      const trIn = this.s.payments.filter(p => monthOf(p.at) === m).reduce((a, p) => a + p.amount, 0);
+      const pkIn = this.s.pkgPayments.filter(p => monthOf(p.at) === m).reduce((a, p) => a + p.amount, 0);
+      const out = {}; this.s.requests.filter(r => r.status === "PAID" && monthOf(r.paidAt) === m).forEach(r => { out[r.category] = (out[r.category] || 0) + r.amount; });
+      const expense = Object.values(out).reduce((a, b) => a + b, 0);
+      return { month: m, treatmentIncome: trIn, packageIncome: pkIn, income: trIn + pkIn, expenseByCat: out, expense, profit: trIn + pkIn - expense };
+    }
+    closeMonth(m) {
+      this.need("closeMonth");
+      if (m >= monthOf(this.today)) throw new Error("Chỉ chốt sổ tháng đã kết thúc.");
+      if (this.isClosed(m)) throw new Error("Tháng này đã chốt.");
+      const pend = this.s.requests.filter(r => monthOf(r.createdAt) <= m && ["PENDING", "APPROVED"].includes(r.status)).length;
+      const snap = this.monthSummary(m);
+      this.s.periods = this.s.periods.filter(p => p.month !== m);
+      this.s.periods.push({ month: m, closedBy: this.actor().id, closedAt: this.today, snapshot: snap, pendingAtClose: pend });
+      this.log("CHỐT SỔ", `Tháng ${m} · thu ${vnd(snap.income)}đ · chi ${vnd(snap.expense)}đ · lãi ${vnd(snap.profit)}đ${pend ? ` · còn ${pend} chứng từ chưa chi` : ""}`);
+    }
+    reopenMonth(m, reason) {
+      this.need("closeMonth");
+      const p = this.s.periods.find(x => x.month === m && !x.reopenedAt); if (!p) throw new Error("Tháng này chưa chốt.");
+      if (!String(reason || "").trim()) throw new Error("Nhập lý do mở lại sổ.");
+      p.reopenedAt = this.today; p.reopenedBy = this.actor().id; p.reopenReason = reason; this.log("MỞ LẠI SỔ", `Tháng ${m} · ${reason}`);
+    }
+
+    // ================= CHĂM SÓC KHÁCH =================
+    careList() {
+      const out = [], t = this.today;
+      const logged = (cid, kind) => this.s.careLogs.some(l => l.customerId === cid && l.kind === kind && daysBetween(l.at, t) < 14);
+      for (const c of this.s.customers) {
+        const last = this.s.sessions.filter(s => this.treatment(s.treatmentId)?.customerId === c.id).map(s => s.at).sort().pop();
+        const future = this.s.appointments.some(a => a.customerId === c.id && a.date >= t && a.status === "BOOKED");
+        if (last && daysBetween(last, t) >= 3 && daysBetween(last, t) <= 10 && !future && !logged(c.id, "AFTERCARE")) out.push({ customerId: c.id, kind: "AFTERCARE", label: `Hỏi thăm sau buổi điều trị ngày ${vnDate(last)}` });
+        const debt = this.s.treatments.filter(x => x.customerId === c.id).reduce((a, x) => a + this.sumTreatment(x).debt, 0);
+        if (debt > 0 && !logged(c.id, "DEBT")) out.push({ customerId: c.id, kind: "DEBT", label: `Còn nợ ${vnd(debt)}đ` });
+      }
+      for (const k of this.s.contracts.filter(x => x.status === "ACTIVE" && x.expiresAt)) {
+        const d = daysBetween(t, k.expiresAt);
+        if (d >= 0 && d <= 30 && !logged(k.customerId, "EXPIRY")) out.push({ customerId: k.customerId, kind: "EXPIRY", label: `Gói ${k.code} hết hạn ${vnDate(k.expiresAt)} — ví còn ${vnd(this.balance(k.id))}đ` });
+      }
+      return out;
+    }
+    logCare(customerId, kind, note) {
+      this.need("care");
+      if (!String(note || "").trim()) throw new Error("Ghi lại nội dung đã trao đổi với khách.");
+      this.s.careLogs.push({ id: uid("cs"), customerId, kind, note, at: this.today, by: this.actor().id }); this.log("CHĂM SÓC", `${this.customer(customerId).name} · ${note}`);
+    }
+    addActivity(partnerId, title) { this.need("activity"); this.s.activities.push({ id: uid("nv"), partnerId, month: monthOf(this.today), title, at: this.today, by: this.actor().id }); this.log("GHI NHẬN NHIỆM VỤ", `${this.partnerName(partnerId)} · ${title}`); }
+
+    // ================= TRUY NGUỒN & HÀNH TRÌNH KHÁCH =================
+    // Chuỗi nguồn gốc: khách ← đối tác giới thiệu (tầng 1) ← người giới thiệu đối tác đó (tầng 2).
+    lineage(customerId) {
+      const c = this.customer(customerId); if (!c) return [];
+      const chain = []; let pid = c.referrerPartnerId, lvl = 1;
+      while (pid && lvl <= 2) { const p = this.partner(pid); if (!p) break; chain.push({ level: lvl, partner: p, name: this.partnerName(p.id) }); pid = p.sponsorId; lvl++; }
+      return chain;
+    }
+    // Khách do một đối tác mang về: tầng 1 (trực tiếp) và tầng 2 (qua đối tác mình giới thiệu).
+    broughtBy(partnerId) {
+      const direct = this.s.customers.filter(c => c.referrerPartnerId === partnerId);
+      const kids = this.children(partnerId).map(p => p.id);
+      const level2 = this.s.customers.filter(c => kids.includes(c.referrerPartnerId));
+      return { direct, level2 };
+    }
+    journey(customerId) {
+      const c = this.customer(customerId); if (!c) return [];
+      const ev = [], S = this.s, nm = id => (this.staff(id) || {}).name || "—";
+      const src = CAT.SOURCES[c.source] || c.source;
+      ev.push({ at: c.createdAt, kind: "START", title: `Lần đầu đến trung tâm — nguồn: ${src}`, detail: c.referrerPartnerId ? `Đối tác giới thiệu: ${this.partnerName(c.referrerPartnerId)} (${this.partner(c.referrerPartnerId).code})` : `Tiếp nhận bởi ${nm(c.createdBy)}` });
+      S.appointments.filter(a => a.customerId === c.id).forEach(a => ev.push({ at: a.date, kind: "APPT", title: `Lịch hẹn ${a.time} — ${({ BOOKED: "đã đặt", ARRIVED: "đã đến", DONE: "hoàn thành", CANCELLED: "huỷ", NO_SHOW: "không đến" })[a.status]}`, detail: a.note }));
+      S.treatments.filter(t => t.customerId === c.id).forEach(t => ev.push({ at: t.openedAt, kind: "TREAT", title: `Mở hồ sơ điều trị ${t.code}`, detail: `Tư vấn: ${nm(t.consultantId)} · Bác sĩ: ${nm(t.doctorId)}` }));
+      S.sessions.filter(s => this.treatment(s.treatmentId)?.customerId === c.id).forEach(s => { const t = this.treatment(s.treatmentId), l = t.lines.find(x => x.id === s.lineId); ev.push({ at: s.at, kind: "SESSION", title: `Buổi ${s.no}/${l ? l.sessionsTotal : "?"}: ${l ? l.name : ""}`, detail: `KTV: ${nm(s.techId)} · BS: ${nm(s.doctorId)}` }); });
+      S.payments.filter(p => p.customerId === c.id).forEach(p => ev.push({ at: p.at, kind: p.amount < 0 ? "REFUND" : "PAY", title: p.amount < 0 ? `Hoàn tiền ${vnd(-p.amount)}đ` : `Thanh toán ${vnd(p.amount)}đ`, detail: `${p.code}${p.reason ? " · " + p.reason : ""}` }));
+      S.contracts.filter(k => k.customerId === c.id).forEach(k => {
+        ev.push({ at: k.signedAt, kind: "PKG", title: `Ký gói 15 triệu ${k.code}`, detail: k.attributedPartnerId ? `Giới thiệu: ${this.partnerName(k.attributedPartnerId)}` : "Không có người giới thiệu" });
+        S.wallet.filter(w => w.contractId === k.id && w.kind !== "GRANT").forEach(w => ev.push({ at: w.at, kind: "WALLET", title: `Ví: ${w.label}`, detail: `${vnd(w.amount)}đ` }));
+      });
+      S.careLogs.filter(l => l.customerId === c.id).forEach(l => ev.push({ at: l.at, kind: "CARE", title: "Chăm sóc khách", detail: `${l.note} — ${nm(l.by)}` }));
+      const own = this.partnerOfCustomer(c.id);
+      if (own) this.broughtBy(own.id).direct.forEach(x => ev.push({ at: x.createdAt, kind: "REFER", title: `Giới thiệu khách ${x.name}`, detail: x.code }));
+      return ev.sort((a, b) => a.at.localeCompare(b.at));
+    }
+
+    // ================= PHẠM VI DỮ LIỆU =================
+    scope() {
+      const a = this.actor();
+      if (["ADMIN", "MANAGER", "SHAREHOLDER"].includes(a.role)) return { all: true, ids: STAFF.map(x => x.id), label: "Toàn trung tâm" };
+      if (a.role === "LEAD") return { all: false, ids: STAFF.filter(x => x.team === a.team).map(x => x.id), label: "Của " + TEAMS[a.team] };
+      if (["RECEPTION", "DOCTOR", "TECH"].includes(a.role)) return { all: false, frontDesk: true, ids: [a.id], label: "Của bạn" };
+      return { all: false, ids: [a.id], label: "Của bạn" };
+    }
+    // Khách mà người đang đăng nhập được xem
+    visibleCustomers() {
+      const a = this.actor(), sc = this.scope();
+      if (sc.all || sc.frontDesk) return this.s.customers;
+      if (a.role === "PARTNER") return [];
+      // Của mình/nhóm mình + khách mới chưa có ai phụ trách (để nhận tư vấn).
+      return this.s.customers.filter(c => { const trs = this.s.treatments.filter(t => t.customerId === c.id), ks = this.s.contracts.filter(k => k.customerId === c.id);
+        if (trs.some(t => sc.ids.includes(t.consultantId)) || ks.some(k => sc.ids.includes(k.soldById))) return true;
+        return !trs.some(t => t.consultantId) && !ks.length && (sc.ids.includes(c.createdBy) || daysBetween(c.createdAt, this.today) <= 30); });
+    }
+    actorPartnerId() { const a = this.actor(); if (a.role !== "PARTNER") return null; const p = this.s.partners.find(x => this.customer(x.customerId).name === a.partnerName); return p ? p.id : null; }
+  }
+
+  const API = { Store, STAFF, TEAMS, ROLE_LABEL, CAN, SELLERS, F, PKG_PRICE, ENTITLEMENT, mulDivFloor, addDays, addMonths, addWorkingDays, workingDaysBetween, monthOf, nextMonth, prevMonth, daysBetween, monthsBetween, vnd, vnDate, maskPhone, evaluateMaintenance, terminationDecisionAllowed, emptyState, defaultSettings, uid };
+  root.HP = API;
+  if (typeof module !== "undefined") module.exports = API;
+})(typeof window !== "undefined" ? window : globalThis);

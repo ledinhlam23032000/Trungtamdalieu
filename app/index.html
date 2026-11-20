@@ -1,0 +1,26 @@
+<title>Trungtamdalieu</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<div class="shell">
+  <header class="top">
+    <div class="brand"><span>Bệnh viện Đa khoa Hồng Phúc</span><b>Trung tâm Da liễu</b></div>
+    <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false">Menu</button>
+    <div class="ctl">
+      <label for="actor">Bạn đang là:</label><select id="actor"></select>
+      <label for="today">Ngày:</label><input id="today" type="date">
+    </div>
+  </header>
+  <nav class="side" id="side" aria-label="Điều hướng"></nav>
+  <main><div class="wrap" id="app"></div></main>
+</div>
+<div id="toast" class="toast" hidden></div>
+<div id="tip" class="tip" hidden></div>
+<div id="modal" class="modal" hidden></div>
+<script src="catalog.js"></script>
+<script src="engine.js"></script>
+<script src="seed.js"></script>
+<script src="docs.js"></script>
+<script src="ui.js"></script>

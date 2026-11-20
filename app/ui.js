@@ -1,0 +1,695 @@
+/* GIAO DIỆN — Trungtamdalieu. Mọi thao tác đi qua bộ máy (engine.js); giao diện chỉ hiển thị và gọi lệnh. */
+(function () {
+  "use strict";
+  const { Store, STAFF, TEAMS, ROLE_LABEL, CAN, F, PKG_PRICE, ENTITLEMENT, mulDivFloor, addDays, addMonths, monthOf, nextMonth, prevMonth, daysBetween, vnd, vnDate, maskPhone, evaluateMaintenance } = HP;
+  const CAT = window.CATALOG, DOCS = window.DOCS;
+  const KEY = "trungtamdalieu-app-v1";
+  function load() { try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); if (s && s.v === 3) return s; } } catch (e) { } return SEED.seed(); }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S.s)); } catch (e) { } }
+  const S = new Store(load());
+  window.APP = { S, save };
+
+  // ---------- tiện ích hiển thị ----------
+  const $ = q => document.querySelector(q);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const vndH = n => `<span class="vnd num">${vnd(n)}<small>đ</small></span>`;
+  function short(n) { const a = Math.abs(n), s = n < 0 ? "−" : ""; if (a >= 1e9) return s + (a / 1e9).toLocaleString("vi-VN", { maximumFractionDigits: 2 }) + " tỷ"; if (a >= 1e6) return s + (a / 1e6).toLocaleString("vi-VN", { maximumFractionDigits: 1 }) + " tr"; return s + vnd(a) + "đ"; }
+  const shortH = n => `<span class="num" title="${vnd(n)}đ">${short(n)}</span>`;
+  const vnMonth = m => `T${Number(m.slice(5))}/${m.slice(0, 4)}`;
+  const mlabel = m => "T" + Number(m.slice(5));
+  const sname = id => (S.staff(id) || {}).name || "—";
+  const role = () => S.actor().role;
+  const num = id => Math.round(Number(String(($(id) || {}).value || "0").replace(/[^\d-]/g, "")) || 0);
+  const val = id => (($(id) || {}).value || "").trim();
+  function toast(msg, bad) { const t = $("#toast"); t.textContent = msg; t.className = "toast" + (bad ? " bad" : ""); t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, bad ? 7000 : 4200); }
+  function act(fn, ok) { try { const r = fn(); save(); render(); if (ok) toast(typeof ok === "function" ? ok(r) : ok); return r; } catch (e) { save(); render(); toast(e.message, true); } }
+  const pill = (k, t) => `<span class="pill ${k}">${t}</span>`;
+  const STAFF_ROLES = ["ADMIN", "MANAGER", "RECEPTION", "LEAD", "CONSULTANT", "DOCTOR", "TECH", "MEDIA", "SHAREHOLDER"];
+  const FRONT = ["ADMIN", "RECEPTION", "LEAD", "CONSULTANT"];
+  const HOP = { intake: "hoa", appt: "hoa", apptStatus: "hoa", treatOpen: "maianh", treatLine: "maianh", session: "nga", pay: "hoa", refund: "bich", sell: "hoa", collect: "hoa", select: "hoa", prescribe: "bsminh", redeem: "hoa", end: "bich", reconcile: "bich", batchCreate: "bich", batchApprove: "lam", batchPay: "bich", expenseCreate: "bich", expenseApprove: "lam", expensePay: "bich", payrollCreate: "bich", payrollApprove: "lam", closeMonth: "lam", settings: "lam", care: "hoa", activity: "lam" };
+  // Nút hành động: có quyền → nút thật; cổ đông → khoá; vai trò khác → "chuyển sang người làm được".
+  function btn(action, attrs, label, { cls = "pri", sm = false, avoid = null } = {}) {
+    const z = sm ? " sm" : "";
+    if (S.can(action) && !(avoid && S.actor().id === avoid)) return `<button type="button" class="btn ${cls}${z}" ${attrs}>${label}</button>`;
+    if (role() === "SHAREHOLDER" || role() === "PARTNER") return `<button type="button" class="btn${z}" disabled title="Chế độ chỉ xem">${label}</button>`;
+    let to = STAFF.find(x => x.id === HOP[action]); if (avoid && to.id === avoid) to = STAFF.find(x => CAN[action].includes(x.role) && x.id !== avoid);
+    return `<button type="button" class="btn${z}" data-hop="${to.id}" title="Việc này do ${esc(ROLE_LABEL[to.role])} làm">${label} → chuyển sang ${esc(to.name)}</button>`;
+  }
+  const submitBtn = (action, label) => S.can(action) ? `<button type="submit" class="btn pri">${label}</button>` : btn(action, "", label);
+
+  // ---------- điều hướng ----------
+  const ROUTES = [
+    ["viec-hom-nay", "Việc hôm nay", "Hôm nay", STAFF_ROLES], ["lich-hen", "Lịch hẹn", "Hôm nay", ["ADMIN", "RECEPTION", "LEAD", "CONSULTANT", "DOCTOR", "TECH", "SHAREHOLDER"]],
+    ["tiep-nhan", "Tiếp nhận khách", "Khách hàng", FRONT], ["khach-hang", "Hồ sơ khách hàng", "Khách hàng", ["ADMIN", "MANAGER", "RECEPTION", "LEAD", "CONSULTANT", "DOCTOR", "TECH", "SHAREHOLDER"]], ["cham-soc", "Chăm sóc khách", "Khách hàng", FRONT],
+    ["goi", "Gói 15 triệu", "Đối tác", ["ADMIN", "MANAGER", "RECEPTION", "LEAD", "CONSULTANT", "DOCTOR", "SHAREHOLDER"]], ["mang-luoi", "Mạng lưới & truy nguồn", "Đối tác", ["ADMIN", "MANAGER", "LEAD", "SHAREHOLDER"]], ["hoa-hong", "Hoa hồng đối tác", "Đối tác", ["ADMIN", "MANAGER", "SHAREHOLDER"]], ["cong-doi-tac", "Cổng đối tác", "Đối tác", ["ADMIN", "MANAGER", "SHAREHOLDER", "PARTNER"]],
+    ["tong-quan", "Tổng quan", "Phân tích", ["ADMIN", "MANAGER", "SHAREHOLDER"]], ["hieu-suat", "Hiệu suất", "Phân tích", STAFF_ROLES],
+    ["thu-chi", "Thu chi & chứng từ", "Vận hành", ["ADMIN", "MANAGER", "RECEPTION", "SHAREHOLDER"]], ["luong", "Lương nhân sự", "Vận hành", ["ADMIN", "MANAGER"]], ["giay-to", "Giấy tờ", "Vận hành", ["ADMIN", "MANAGER", "RECEPTION", "LEAD", "CONSULTANT", "DOCTOR", "SHAREHOLDER"]],
+    ["cai-dat", "Cài đặt & danh mục", "Quản trị", ["ADMIN", "MANAGER", "SHAREHOLDER"]], ["phan-quyen", "Phân quyền", "Quản trị", STAFF_ROLES], ["nhat-ky", "Nhật ký", "Quản trị", ["ADMIN", "MANAGER"]], ["kiem-thu", "Kiểm thử", "Quản trị", ["ADMIN", "MANAGER"]]
+  ];
+  const allowed = k => { const r = ROUTES.find(x => x[0] === k); return !!r && r[3].includes(role()); };
+  const defRoute = () => role() === "PARTNER" ? "cong-doi-tac" : "viec-hom-nay";
+  const route = () => { const h = location.hash.slice(1); return allowed(h) ? h : defRoute(); };
+  let ui = { cusId: null, cusTab: "dieu-tri", contractId: null, q: "", cq: "", apptDate: null, fmonth: null, runId: null, partnerId: null, pq: "", tq: "", portalPartner: null, ptab: "home", testRun: null, sellPrefill: null, sellOpen: false, showAll: false, reqTab: "PENDING", docKind: "hop-dong" };
+  function go(r) { if (location.hash.slice(1) === r) render(); else location.hash = r; }
+
+  function badges() {
+    const r = role(), b = {};
+    if (r === "ADMIN") b["viec-hom-nay"] = S.s.requests.filter(x => x.status === "PENDING").length + S.s.batches.filter(x => x.status === "CHO_DUYET").length + S.s.payrollRuns.filter(x => x.status === "DRAFT").length;
+    if (r === "DOCTOR") b["viec-hom-nay"] = S.s.selections.filter(x => x.lines.some(l => l.state === "CHO_BAC_SI")).length;
+    if (FRONT.includes(r)) b["cham-soc"] = S.careList().length;
+    return b;
+  }
+  function renderTop() {
+    const groups = [...new Set(STAFF.map(x => x.role))];
+    $("#actor").innerHTML = groups.map(g => `<optgroup label="${ROLE_LABEL[g]}">${STAFF.filter(x => x.role === g).map(x => `<option value="${x.id}" ${x.id === S.s.actorId ? "selected" : ""}>${esc(x.name)} — ${esc(x.label)}</option>`).join("")}</optgroup>`).join("");
+    $("#today").value = S.today;
+    const r = route(), bd = badges(); let last = "", h = "";
+    for (const [k, l, g, roles] of ROUTES) { if (!roles.includes(role())) continue; if (g !== last) { h += `<div class="grp">${g}</div>`; last = g; } h += `<a href="#${k}" class="${k === r ? "on" : ""}">${l}${bd[k] ? `<span class="badge">${bd[k]}</span>` : ""}</a>`; }
+    $("#side").innerHTML = h;
+  }
+
+  // ---------- biểu đồ ----------
+  function barChart(vals, labels, { fmt = short, h = 130, unit = "đ" } = {}) {
+    const W = 320, H = h, pl = 4, pr = 4, pt = 18, pb = 20, n = vals.length, max = Math.max(...vals, 1), slot = (W - pl - pr) / n, bw = Math.min(28, slot * .58), base = H - pb;
+    const bars = vals.map((v, i) => { const x = pl + i * slot + (slot - bw) / 2, bh = Math.max(v > 0 ? 2 : 0, (Math.max(0, v) / max) * (base - pt)), y = base - bh, r = Math.min(4, bh / 2, bw / 2);
+      const path = bh > 0 ? `M${x},${base}V${y + r}Q${x},${y} ${x + r},${y}H${x + bw - r}Q${x + bw},${y} ${x + bw},${y + r}V${base}Z` : "";
+      const tip = `${labels[i]}: ${unit === "đ" ? vnd(v) + "đ" : v + unit}${i === n - 1 ? " (tháng đang chạy)" : ""}`;
+      return `<g data-tip="${esc(tip)}"><rect x="${pl + i * slot}" y="${pt}" width="${slot}" height="${base - pt}" fill="transparent"/>${path ? `<path d="${path}" fill="var(--accent)" opacity="${i === n - 1 ? .55 : 1}"/>` : ""}<text x="${x + bw / 2}" y="${H - 5}" text-anchor="middle" font-size="10" fill="var(--mute)">${labels[i]}</text>${(i === n - 1 || v === max) && v > 0 ? `<text x="${x + bw / 2}" y="${y - 5}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--ink)">${fmt(v)}</text>` : ""}</g>`; }).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Biểu đồ cột theo tháng"><line x1="${pl}" x2="${W - pr}" y1="${base}" y2="${base}" stroke="var(--line)"/>${bars}</svg>`;
+  }
+  function spark(vals) { const W = 84, H = 24, n = vals.length, max = Math.max(...vals, 1), slot = W / n, bw = slot * .6; return `<svg viewBox="0 0 ${W} ${H}" width="84" height="24" aria-hidden="true">${vals.map((v, i) => { const bh = Math.max(v > 0 ? 2 : 0, v / max * (H - 2)); return `<rect x="${i * slot + (slot - bw) / 2}" y="${H - bh}" width="${bw}" height="${bh}" rx="1.5" fill="var(--accent)" opacity="${i === n - 1 ? .55 : 1}"/>`; }).join("")}</svg>`; }
+  const last6 = () => { const m = monthOf(S.today); return [5, 4, 3, 2, 1, 0].map(k => addMonths(m + "-01", -k).slice(0, 7)); };
+  function growth(cur, prev) { if (!prev) return cur ? pill("pos", "mới") : pill("mute", "—"); const g = Math.round((cur - prev) / Math.abs(prev) * 100); return pill(g >= 0 ? "pos" : "neg", `${g >= 0 ? "▲" : "▼"} ${Math.abs(g)}%`); }
+
+  // ---------- giấy tờ (hộp thoại) ----------
+  function openDoc(html, title) {
+    const m = $("#modal"); m.innerHTML = `<div class="box" role="dialog" aria-label="${esc(title)}"><div class="bar"><b style="flex:1">${esc(title)}</b><button class="btn sm" data-copydoc="1">Sao chép nội dung</button><button class="btn sm pri" data-closedoc="1">Đóng</button></div><div class="paper" id="paper">${html}</div><p class="hint" style="margin:8px 4px 0">Bản in A4 điền sẵn từ dữ liệu. Khi mở app trực tiếp trên máy tính (không qua bản xem trước), bấm Ctrl+P để in hoặc lưu PDF.</p></div>`;
+    m.hidden = false; m.scrollTop = 0;
+  }
+
+  // =================== VIỆC HÔM NAY ===================
+  function viewToday() {
+    const r = role(), a = S.actor(), t = S.today, cards = [];
+    const appts = S.s.appointments.filter(x => x.date === t).sort((x, y) => x.time.localeCompare(y.time));
+    const apptCard = list => `<div class="card"><h3>Lịch hẹn hôm nay ${pill("mute", list.length)}</h3><div class="list">${list.map(x => apptRow(x)).join("") || `<div class="hint">Không có lịch hẹn.</div>`}</div></div>`;
+    if (["ADMIN", "RECEPTION", "LEAD", "CONSULTANT"].includes(r)) cards.push(apptCard(appts));
+    if (r === "DOCTOR") {
+      cards.push(apptCard(appts.filter(x => !x.staffId || x.staffId === a.id)));
+      const sels = S.s.selections.filter(x => x.lines.some(l => l.state === "CHO_BAC_SI"));
+      cards.push(`<div class="card"><h3>Phiếu chọn chờ bạn chỉ định ${pill(sels.length ? "pend" : "mute", sels.length)}</h3><div class="list">${sels.map(x => { const c = S.contract(x.contractId); return `<div class="li"><span><b>${esc(S.customer(c.customerId).name)}</b><div class="hint">${esc(x.lines.filter(l => l.state === "CHO_BAC_SI").map(l => l.name).join(", "))}</div></span><span class="amt"><button class="btn sm pri" data-opencontract="${c.id}">Mở để chỉ định</button></span></div>`; }).join("") || `<div class="hint">Không có phiếu chờ.</div>`}</div></div>`);
+    }
+    if (["TECH", "DOCTOR"].includes(r)) {
+      const todo = S.s.treatments.filter(x => x.status === "OPEN").flatMap(x => x.lines.filter(l => l.sessionsDone < l.sessionsTotal).map(l => ({ x, l }))).slice(0, 12);
+      cards.push(`<div class="card"><h3>Dịch vụ còn buổi chưa làm ${pill("mute", todo.length)}</h3><div class="list">${todo.map(({ x, l }) => `<div class="li"><span><b>${esc(S.customer(x.customerId).name)}</b><div class="hint">${esc(l.name)} · buổi ${l.sessionsDone}/${l.sessionsTotal}</div></span><span class="amt"><button class="btn sm" data-opencus="${x.customerId}">Mở hồ sơ</button></span></div>`).join("") || `<div class="hint">Không có.</div>`}</div></div>`);
+    }
+    if (FRONT.includes(r)) { const c = S.careList().slice(0, 6); cards.push(`<div class="card"><h3>Cần gọi chăm sóc ${pill(c.length ? "pend" : "mute", S.careList().length)}</h3><div class="list">${c.map(x => `<div class="li"><span><b>${esc(S.customer(x.customerId).name)}</b><div class="hint">${esc(x.label)}</div></span><span class="amt"><a class="btn sm" href="#cham-soc">Gọi</a></span></div>`).join("") || `<div class="hint">Không có.</div>`}</div></div>`); }
+    if (r === "ADMIN") {
+      const pend = S.s.requests.filter(x => x.status === "PENDING"), lots = S.s.batches.filter(x => x.status === "CHO_DUYET"), runs = S.s.payrollRuns.filter(x => x.status === "DRAFT");
+      cards.push(`<div class="card"><h3>Chờ Ban giám đốc duyệt ${pill(pend.length + lots.length + runs.length ? "pend" : "mute", pend.length + lots.length + runs.length)}</h3><div class="list">
+        ${pend.map(x => `<div class="li"><span>Đề nghị chi ${esc(x.code)} · ${esc(x.payee)}<div class="hint">Lập bởi ${esc(sname(x.createdBy))}</div></span><span class="amt">${vndH(x.amount)} <a class="btn sm" href="#thu-chi">Xem</a></span></div>`).join("")}
+        ${lots.map(x => `<div class="li"><span>Lô hoa hồng ${esc(x.code)}<div class="hint">Lập bởi ${esc(sname(x.createdBy))}</div></span><span class="amt">${vndH(x.total)} <a class="btn sm" href="#hoa-hong">Xem</a></span></div>`).join("")}
+        ${runs.map(x => `<div class="li"><span>Bảng lương ${vnMonth(x.month)} ${esc(x.code)}<div class="hint">Lập bởi ${esc(sname(x.createdBy))}</div></span><span class="amt">${vndH(x.total)} <a class="btn sm" href="#luong">Xem</a></span></div>`).join("")}
+        ${pend.length + lots.length + runs.length ? "" : `<div class="hint">Không có việc chờ duyệt.</div>`}</div></div>`);
+    }
+    if (r === "MANAGER") {
+      const ap = S.s.requests.filter(x => x.status === "APPROVED" && !(x.source && x.source.type === "BATCH")), el = S.s.commissions.filter(e => e.state === "ELIGIBLE" && !e.batchId).length, pnd = S.s.commissions.filter(e => e.state === "PENDING" && e.period < monthOf(t)).length;
+      cards.push(`<div class="card"><h3>Việc kế toán</h3><div class="list">
+        ${ap.map(x => `<div class="li"><span>Đã duyệt, chờ chi: ${esc(x.code)} · ${esc(x.payee)}</span><span class="amt">${vndH(x.amount)} <a class="btn sm" href="#thu-chi">Chi</a></span></div>`).join("")}
+        ${pnd ? `<div class="li"><span>${pnd} khoản hoa hồng kỳ trước chưa đối soát</span><span class="amt"><a class="btn sm" href="#hoa-hong">Đối soát</a></span></div>` : ""}
+        ${el ? `<div class="li"><span>${el} khoản hoa hồng khả dụng chưa vào lô</span><span class="amt"><a class="btn sm" href="#hoa-hong">Lập lô</a></span></div>` : ""}
+        ${!S.s.payrollRuns.some(x => x.month === prevMonth(monthOf(t))) ? `<div class="li"><span>Chưa lập bảng lương ${vnMonth(prevMonth(monthOf(t)))}</span><span class="amt"><a class="btn sm" href="#luong">Lập</a></span></div>` : ""}
+      </div></div>`);
+    }
+    if (r === "SHAREHOLDER" || r === "MEDIA") cards.push(`<div class="card"><h3>Lối tắt</h3><div class="row">${r === "SHAREHOLDER" ? `<a class="btn" href="#tong-quan">Tổng quan kinh doanh</a><a class="btn" href="#thu-chi">Thu chi</a>` : ""}<a class="btn" href="#hieu-suat">Hiệu suất</a></div><p class="hint">${r === "SHAREHOLDER" ? "Bạn xem được toàn bộ số liệu, không có nút sửa." : "Bạn xem thu nhập của mình ở mục Hiệu suất."}</p></div>`);
+    return `<div class="head"><h2>Việc hôm nay</h2><span class="pill gold">${esc(a.name)} · ${esc(ROLE_LABEL[r])}</span><p>${vnDate(t)} — những việc cần bạn làm, sắp theo mức gấp.</p></div><div class="grid g2">${cards.join("")}</div>`;
+  }
+  const APPT_ST = { BOOKED: ["pend", "Đã đặt"], ARRIVED: ["pos", "Đã đến"], DONE: ["mute", "Hoàn thành"], CANCELLED: ["mute", "Huỷ"], NO_SHOW: ["neg", "Không đến"] };
+  const APPT_TY = { NEW: "Khách mới", FOLLOW_UP: "Tái khám", SERVICE: "Làm dịch vụ" };
+  function apptRow(x) {
+    const c = S.customer(x.customerId); const can = S.can("apptStatus");
+    const acts = x.status === "BOOKED" ? (can ? `<button class="btn sm pri" data-appt="${x.id}" data-st="ARRIVED">Đã đến</button><button class="btn sm" data-appt="${x.id}" data-st="NO_SHOW">Không đến</button>` : "") : x.status === "ARRIVED" ? (can ? `<button class="btn sm pri" data-appt="${x.id}" data-st="DONE">Hoàn thành</button>` : "") : "";
+    return `<div class="li" style="flex-wrap:wrap"><span class="num" style="font-weight:800;width:46px">${x.time}</span><span style="flex:1;min-width:160px"><b>${esc(c.name)}</b> <span class="hint">${maskPhone(c.last5)}</span><div class="hint">${APPT_TY[x.type] || ""}${x.staffId ? " · " + esc(sname(x.staffId)) : ""}${x.note ? " · " + esc(x.note) : ""}</div></span><span class="row" style="gap:6px">${pill(...APPT_ST[x.status])}${acts}<button class="btn sm" data-opencus="${c.id}">Hồ sơ</button></span></div>`;
+  }
+
+  // =================== LỊCH HẸN ===================
+  function viewAppts() {
+    const d = ui.apptDate || S.today; const list = S.s.appointments.filter(x => x.date === d).sort((a, b) => a.time.localeCompare(b.time));
+    const cs = S.visibleCustomers();
+    return `<div class="head"><h2>Lịch hẹn</h2><p>Đặt lịch, đánh dấu khách đã đến, hoàn thành.</p></div>
+    <div class="split"><div class="card stack"><h3>Đặt lịch mới</h3>${S.can("appt") ? `<form id="apptForm" class="stack">
+      <div class="fld"><label for="apCus">Khách hàng (gõ tên hoặc 5 số cuối)</label><input id="apCus" list="apCusList" autocomplete="off"><datalist id="apCusList">${cs.slice(-150).map(c => `<option value="${esc(c.name)} · ${c.last5} · ${c.code}"></option>`).join("")}</datalist></div>
+      <div class="row"><div class="fld"><label for="apDate">Ngày</label><input id="apDate" type="date" value="${d}"></div><div class="fld"><label for="apTime">Giờ</label><input id="apTime" type="time" value="09:00"></div></div>
+      <div class="row"><div class="fld"><label for="apType">Loại</label><select id="apType"><option value="SERVICE">Làm dịch vụ</option><option value="FOLLOW_UP">Tái khám</option><option value="NEW">Khách mới tư vấn</option></select></div><div class="fld"><label for="apStaff">Bác sĩ</label><select id="apStaff"><option value="">— Chưa chọn —</option>${STAFF.filter(x => x.role === "DOCTOR").map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></div></div>
+      <div class="fld"><label for="apNote">Ghi chú</label><input id="apNote"></div>
+      <div class="row"><button class="btn pri" type="submit">Đặt lịch</button></div></form>` : `<p class="hint">Vai trò này không đặt lịch.</p>`}</div>
+    <div class="card"><h3>Ngày <input id="apView" type="date" value="${d}" style="border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:var(--card)"> ${pill("mute", list.length + " lịch")}</h3><div class="list">${list.map(apptRow).join("") || `<div class="hint">Không có lịch hẹn ngày này.</div>`}</div></div></div>`;
+  }
+
+  // =================== TIẾP NHẬN ===================
+  function viewIntake() {
+    const q = ui.tq.trim(); const found = q ? S.findCustomers(q).slice(0, 8) : [];
+    const pre = ui.intakePrefill || {};
+    return `<div class="head"><h2>Tiếp nhận khách</h2><p>Tìm khách cũ bằng tên hoặc 5 số cuối SĐT trước khi tạo mới, tránh trùng hồ sơ.</p></div>
+    <div class="grid g2"><div class="card stack"><h3>Tìm khách đã có</h3><div class="fld"><label for="tq">Tên hoặc 5 số cuối SĐT</label><input id="tq" value="${esc(ui.tq)}" autocomplete="off"></div>
+      <div class="list">${found.map(c => `<div class="li"><span><b>${esc(c.name)}</b> <span class="hint">${maskPhone(c.last5)} · ${c.code}</span><div class="hint">${esc(CAT.SOURCES[c.source] || "")}${c.referrerPartnerId ? " · " + esc(S.partnerName(c.referrerPartnerId)) : ""}</div></span><span class="amt"><button class="btn sm pri" data-opencus="${c.id}">Mở hồ sơ</button></span></div>`).join("") || (q ? `<div class="hint">Không thấy khách nào — tạo hồ sơ mới bên cạnh.</div>` : "")}</div></div>
+    <div class="card" id="intakeBox"><h3>Hồ sơ khách mới</h3><form id="intakeForm" class="stack" autocomplete="off">
+      <div class="row"><div class="fld"><label for="inName">Họ tên</label><input id="inName" value="${esc(pre.name || "")}"></div><div class="fld" style="flex:0 1 140px"><label for="inL5">5 số cuối SĐT</label><input id="inL5" inputmode="numeric" maxlength="5" value="${esc(pre.l5 || "")}"></div></div>
+      <div class="row"><div class="fld"><label for="inGender">Giới tính</label><select id="inGender"><option value="F">Nữ</option><option value="M">Nam</option></select></div><div class="fld"><label for="inDob">Ngày sinh</label><input id="inDob" type="date"></div><div class="fld"><label for="inSkin">Loại da</label><select id="inSkin"><option value="">—</option>${CAT.SKIN.map(x => `<option>${x}</option>`).join("")}</select></div></div>
+      <div class="fld"><label>Vấn đề da</label><div class="chips">${CAT.CONCERNS.map(x => `<label><input type="checkbox" name="concern" value="${x}">${x}</label>`).join("")}</div></div>
+      <div class="fld"><label for="inAllergy">Dị ứng / chống chỉ định</label><input id="inAllergy"></div>
+      <div class="row"><div class="fld"><label for="inSource">Nguồn khách</label><select id="inSource">${Object.entries(CAT.SOURCES).map(([k, l]) => `<option value="${k}" ${pre.ref && k === "PARTNER" ? "selected" : ""}>${l}</option>`).join("")}</select></div><div class="fld"><label for="inRef">Mã đối tác giới thiệu (nếu có)</label><input id="inRef" style="text-transform:uppercase" value="${esc(pre.ref || "")}"><div id="inRefInfo" class="hint">${pre.ref && S.partnerByCode(pre.ref) ? `<span class="ok">✓ ${esc(S.partnerName(S.partnerByCode(pre.ref).id))}</span>` : "Ví dụ HP-2K7Q. Hệ thống hiện tên để xác nhận."}</div></div></div>
+      <label class="chk"><input type="checkbox" id="inConsent" ${pre.consent ? "checked" : ""}>Khách đồng ý cho trung tâm lưu và xử lý thông tin cá nhân để chăm sóc, điều trị</label>
+      <div class="row">${submitBtn("intake", "Tạo hồ sơ")}<button type="button" class="btn" data-sample-intake="1">Điền dữ liệu mẫu</button></div></form></div></div>`;
+  }
+
+  // =================== HỒ SƠ KHÁCH HÀNG ===================
+  function nextForCustomer(c) {
+    const trs = S.s.treatments.filter(t => t.customerId === c.id && t.status === "OPEN");
+    if (!S.s.treatments.some(t => t.customerId === c.id)) return { t: "Mở hồ sơ điều trị", d: "Tư vấn xong thì mở hồ sơ, thêm dịch vụ khách chọn.", go: "sec-open" };
+    for (const t of trs) { if (!t.lines.length) return { t: "Thêm dịch vụ vào hồ sơ " + t.code, d: "Chọn dịch vụ, số lượng và giảm giá (nếu có).", go: "tr-" + t.id }; if (S.sumTreatment(t).debt > 0) return { t: `Thu tiền ${vnd(S.sumTreatment(t).debt)}đ`, d: "Khách còn nợ hồ sơ " + t.code, go: "tr-" + t.id }; if (t.lines.some(l => l.sessionsDone < l.sessionsTotal)) return { t: "Ghi buổi điều trị", d: "Kỹ thuật viên/bác sĩ ghi lại mỗi buổi đã làm.", go: "tr-" + t.id }; }
+    return { t: "Đặt lịch hẹn tiếp theo", d: "Hẹn tái khám hoặc buổi tiếp theo để khách quay lại.", go: "sec-appt" };
+  }
+  function viewCustomers() {
+    const vis = S.visibleCustomers(); const q = ui.cq.trim().toLowerCase();
+    const list = vis.filter(c => !q || c.name.toLowerCase().includes(q) || c.last5.endsWith(q) || c.code.toLowerCase().includes(q)).slice().reverse();
+    if (!ui.cusId || !vis.some(c => c.id === ui.cusId)) ui.cusId = list[0] ? list[0].id : null;
+    const shown = list.slice(0, ui.showAll ? 80 : 10);
+    return `<div class="head"><h2>Hồ sơ khách hàng</h2>${S.scope().all || S.scope().frontDesk ? "" : pill("pend", "Bạn chỉ thấy khách " + S.scope().label.toLowerCase())}<p>Toàn bộ thông tin một khách: điều trị, thanh toán, gói, hành trình và nguồn gốc.</p></div>
+    <div class="split"><div class="card"><h3>Khách ${pill("mute", list.length)}</h3><div class="fld" style="margin-bottom:8px"><label for="cq">Tìm tên, 5 số cuối SĐT, mã KH</label><input id="cq" value="${esc(ui.cq)}" autocomplete="off"></div>
+      <div class="list">${shown.map(c => { const debt = S.s.treatments.filter(t => t.customerId === c.id).reduce((a, t) => a + S.sumTreatment(t).debt, 0);
+        return `<button class="crow ${c.id === ui.cusId ? "on" : ""}" data-cus="${c.id}"><span><b>${esc(c.name)}</b> <span class="hint">${maskPhone(c.last5)}</span><span class="hint" style="display:block">${c.code} · ${esc(CAT.SOURCES[c.source] || "")}</span></span><span>${debt ? pill("neg", "Nợ " + short(debt)) : S.partnerOfCustomer(c.id) ? pill("gold", "Đối tác") : ""}</span></button>`; }).join("") || `<div class="hint">Không có khách.</div>`}</div>
+      ${list.length > shown.length ? `<button class="btn sm" data-showall="1" style="margin-top:8px">Xem thêm ${list.length - shown.length}</button>` : ""}</div>
+    <div id="cusPanel">${ui.cusId ? customerPanel(S.customer(ui.cusId)) : `<div class="card hint">Chưa có khách trong phạm vi của bạn.</div>`}</div></div>`;
+  }
+  function chainHtml(c) {
+    const ln = S.lineage(c.id);
+    if (!ln.length) return `<div class="chain"><span class="n me">${esc(c.name)}</span><span class="ar">← nguồn: ${esc(CAT.SOURCES[c.source] || c.source)}</span></div>`;
+    return `<div class="chain"><span class="n me">${esc(c.name)}</span>${ln.map(x => `<span class="ar">← tầng ${x.level}</span><button class="n" data-netpartner="${x.partner.id}" style="cursor:pointer">${esc(x.name)} <span class="mono">${x.partner.code}</span></button>`).join("")}</div>`;
+  }
+  function customerPanel(c) {
+    const own = S.partnerOfCustomer(c.id), trs = S.s.treatments.filter(t => t.customerId === c.id).slice().reverse();
+    const ns = nextForCustomer(c); const tabs = [["dieu-tri", "Điều trị & thanh toán"], ["hanh-trinh", "Hành trình & nguồn gốc"], ["goi", "Gói & ví"], ["lich", "Lịch hẹn"]];
+    let body = "";
+    if (ui.cusTab === "dieu-tri") body = `<a class="next" href="#${ns.go}" data-goto="${ns.go}"><span class="k">Việc tiếp theo</span><b>${ns.t}</b><span class="hint">${ns.d}</span></a>
+      ${trs.map(t => treatmentCard(t)).join("")}
+      <div class="card" id="sec-open"><h3>Mở hồ sơ điều trị mới</h3><div class="row"><div class="fld"><label for="opDoc">Bác sĩ phụ trách</label><select id="opDoc">${STAFF.filter(x => x.role === "DOCTOR").map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></div><div class="fld"><label for="opCons">Tư vấn viên</label><select id="opCons"><option value="">— Không —</option>${STAFF.filter(x => ["LEAD", "CONSULTANT"].includes(x.role)).map(x => `<option value="${x.id}" ${x.id === S.actor().id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></div>${btn("treatOpen", `data-opentr="${c.id}"`, "Mở hồ sơ")}</div></div>`;
+    if (ui.cusTab === "hanh-trinh") { const ev = S.journey(c.id);
+      body = `<div class="card" id="sec-journey"><h3>Nguồn gốc khách (truy ngược 2 cấp)</h3>${chainHtml(c)}<p class="hint">Bấm tên đối tác để xem mạng lưới của người đó.</p></div>
+      <div class="card"><h3>Hành trình ${pill("mute", ev.length + " sự kiện")}</h3><div class="tl">${ev.map(e => `<div class="e ${e.kind}"><div class="d">${vnDate(e.at)}</div><b>${esc(e.title)}</b><div class="hint">${esc(e.detail || "")}</div></div>`).join("")}</div></div>
+      ${own ? `<div class="card"><h3>Khách này đã giới thiệu</h3>${(() => { const b = S.broughtBy(own.id); return `<p>Tầng 1 (trực tiếp): <b>${b.direct.length}</b> khách · Tầng 2: <b>${b.level2.length}</b> khách</p><div class="list">${b.direct.slice(0, 8).map(x => `<div class="li"><span>${esc(x.name)} <span class="hint">${x.code}</span></span><span class="amt"><button class="btn sm" data-cus="${x.id}">Xem</button></span></div>`).join("")}</div>`; })()}</div>` : ""}`; }
+    if (ui.cusTab === "goi") { const ks = S.s.contracts.filter(k => k.customerId === c.id);
+      body = `<div class="card"><h3>Gói 15 triệu</h3>${ks.map(k => `<div class="li"><span><b class="mono">${k.code}</b> ${statusPill(k)}<div class="hint">Ví còn ${vnd(S.balance(k.id))}đ · hạn ${vnDate(k.expiresAt)}</div></span><span class="amt"><button class="btn sm pri" data-opencontract="${k.id}">Mở</button></span></div>`).join("") || `<p class="hint">Khách chưa mua gói.</p>`}
+      <div class="row" style="margin-top:8px">${btn("sell", `data-sellfor="${c.id}"`, "Bán gói 15 triệu cho khách này")}</div></div>`; }
+    if (ui.cusTab === "lich") { const ap = S.s.appointments.filter(a => a.customerId === c.id).sort((a, b) => b.date.localeCompare(a.date));
+      body = `<div class="card" id="sec-appt"><h3>Đặt lịch hẹn</h3>${S.can("appt") ? `<div class="row"><div class="fld"><label for="caDate">Ngày</label><input id="caDate" type="date" value="${addDays(S.today, 7)}"></div><div class="fld"><label for="caTime">Giờ</label><input id="caTime" type="time" value="09:00"></div><div class="fld"><label for="caType">Loại</label><select id="caType"><option value="SERVICE">Làm dịch vụ</option><option value="FOLLOW_UP">Tái khám</option></select></div><button class="btn pri" data-cusappt="${c.id}">Đặt lịch</button></div>` : btn("appt", "", "Đặt lịch")}</div>
+      <div class="card"><h3>Lịch sử hẹn</h3><div class="list">${ap.map(a => `<div class="li"><span>${vnDate(a.date)} ${a.time} · ${APPT_TY[a.type]}</span><span class="amt">${pill(...APPT_ST[a.status])}</span></div>`).join("") || `<div class="hint">Chưa có.</div>`}</div></div>`; }
+    return `<div class="stack"><div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start"><div style="min-width:0;flex:1"><div style="font-size:19px;font-weight:800">${esc(c.name)} <span class="hint" style="font-weight:500">${maskPhone(c.last5)}</span></div>
+      <div class="hint">${c.code} · ${c.gender === "M" ? "Nam" : "Nữ"}${c.dob ? " · " + vnDate(c.dob) : ""} · ${esc(c.skinType || "Chưa ghi loại da")} · Đến lần đầu ${vnDate(c.createdAt)}</div>
+      <div class="chips" style="margin-top:6px">${(c.concerns || []).map(x => pill("mute", esc(x))).join("")}${own ? pill("gold", "Đối tác " + own.code) : ""}</div></div>
+      <div style="text-align:right">${chainHtml(c)}</div></div>${c.allergies ? `<div class="warnbox" style="margin-top:8px"><b>Dị ứng / chống chỉ định:</b> ${esc(c.allergies)}</div>` : ""}</div>
+      <div class="tabs2">${tabs.map(([k, l]) => `<button data-custab="${k}" class="${ui.cusTab === k ? "on" : ""}">${l}</button>`).join("")}</div>${body}</div>`;
+  }
+  function treatmentCard(t) {
+    const sm = S.sumTreatment(t), pays = S.s.payments.filter(p => p.treatmentId === t.id), open = t.status === "OPEN";
+    const hideMoney = false;
+    return `<div class="card" id="tr-${t.id}"><h3><span>Hồ sơ ${t.code} · ${vnDate(t.openedAt)} ${t.kind === "WALLET" ? pill("gold", "Quyền lợi gói") : ""}</span>${pill(open ? "pend" : "pos", open ? "Đang điều trị" : "Hoàn tất")}</h3>
+      <div class="hint">Tư vấn: ${esc(sname(t.consultantId))} · Bác sĩ: ${esc(sname(t.doctorId))}</div>
+      <div class="tbl" style="margin-top:8px"><table><thead><tr><th>Dịch vụ</th><th class="r">Thành tiền</th><th>Buổi</th><th></th></tr></thead><tbody>
+      ${t.lines.map(l => `<tr><td>${esc(l.name)}${l.discount ? `<div class="hint">Giảm ${vnd(l.discount)}đ</div>` : ""}${l.walletEntryId ? `<div class="hint">Trừ ví ${vnd(l.listValue)}đ</div>` : ""}</td><td class="r">${vndH(l.finalPrice)}</td><td class="num">${l.sessionsDone}/${l.sessionsTotal}</td><td style="white-space:nowrap">${l.sessionsDone < l.sessionsTotal ? (S.can("session") ? `<select id="tech-${l.id}" style="border:1px solid var(--line);border-radius:8px;padding:4px;background:var(--card)">${STAFF.filter(x => x.role === "TECH").map(x => `<option value="${x.id}" ${x.id === S.actor().id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select> <button class="btn sm pri" data-session="${t.id}" data-line="${l.id}">Ghi buổi</button>` : btn("session", `data-session="${t.id}" data-line="${l.id}"`, "Ghi buổi", { sm: true, cls: "" })) : pill("pos", "Đủ buổi")}${!l.walletEntryId && !l.sessionsDone && S.can("treatLine") && open ? ` <button class="btn sm" data-rmline="${t.id}" data-line="${l.id}">Bỏ</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="4" class="hint">Chưa có dịch vụ.</td></tr>`}
+      </tbody></table></div>
+      ${open ? `<div class="row" style="margin-top:10px"><div class="fld" style="flex:2 1 220px"><label for="svc-${t.id}">Thêm dịch vụ</label><select id="svc-${t.id}">${CAT.GROUPS.map(([g, l]) => `<optgroup label="${esc(l)}">${CAT.SERVICES.filter(s => s.group === g).map(s => `<option value="${s.code}">${esc(s.name)} — ${vnd(s.price)}${s.unit}</option>`).join("")}</optgroup>`).join("")}</select></div><div class="fld" style="flex:0 1 80px"><label for="qty-${t.id}">SL</label><input id="qty-${t.id}" type="number" min="1" value="1"></div><div class="fld" style="flex:0 1 120px"><label for="disc-${t.id}">Giảm giá</label><input id="disc-${t.id}" inputmode="numeric" value="0"></div>${btn("treatLine", `data-addline="${t.id}"`, "Thêm", { cls: "" })}</div>` : ""}
+      <div class="grid g3" style="margin-top:12px"><div><div class="hint">Tổng</div><b>${vndH(sm.total)}</b></div><div><div class="hint">Đã thu</div><b>${vndH(sm.paid)}</b></div><div><div class="hint">Còn nợ</div><b style="color:${sm.debt ? "var(--neg)" : "inherit"}">${vndH(sm.debt)}</b></div></div>
+      ${sm.debt > 0 ? `<div class="row" style="margin-top:10px"><div class="fld"><label for="pay-${t.id}">Thu tiền</label><input id="pay-${t.id}" inputmode="numeric" value="${sm.debt}"></div><div class="fld" style="flex:0 1 150px"><label for="pm-${t.id}">Hình thức</label><select id="pm-${t.id}"><option value="CASH">Tiền mặt</option><option value="TRANSFER">Chuyển khoản</option><option value="CARD">Quẹt thẻ</option></select></div>${btn("pay", `data-pay="${t.id}"`, "Thu tiền")}</div>` : ""}
+      ${pays.length ? `<details style="margin-top:10px"><summary class="sumh">Khoản thu (${pays.length})</summary><div class="list" style="margin-top:6px">${pays.map(p => `<div class="li" style="flex-wrap:wrap"><span>${vnDate(p.at)} · <span class="mono">${p.code}</span> ${p.kind === "REFUND" ? pill("neg", "Hoàn tiền") : ""}<div class="hint">${esc(sname(p.by))}${p.reason ? " · " + esc(p.reason) : ""}</div></span><span class="amt">${vndH(p.amount)} <button class="btn sm" data-docpay="${p.id}">Phiếu ${p.amount < 0 ? "chi" : "thu"}</button>${p.kind === "PAYMENT" && S.can("refund") ? ` <button class="btn sm warn" data-refundform="${p.id}">Hoàn</button>` : ""}</span>${ui.refundFor === p.id ? `<div class="row" style="width:100%;margin-top:6px"><div class="fld"><label for="rfA">Số tiền hoàn</label><input id="rfA" inputmode="numeric" value="${p.amount}"></div><div class="fld"><label for="rfR">Lý do</label><input id="rfR"></div><button class="btn warn" data-refund="${p.id}">Xác nhận hoàn</button></div>` : ""}</div>`).join("")}</div></details>` : ""}
+      <div class="row" style="margin-top:10px"><button class="btn sm" data-docconsent="${t.id}">Phiếu đồng ý điều trị</button></div></div>`;
+  }
+
+  // =================== CHĂM SÓC ===================
+  function viewCare() {
+    const L = S.careList(); const logs = S.s.careLogs.slice().reverse().slice(0, 15);
+    const KL = { AFTERCARE: ["pos", "Sau điều trị"], DEBT: ["neg", "Công nợ"], EXPIRY: ["pend", "Gói sắp hết hạn"] };
+    return `<div class="head"><h2>Chăm sóc khách</h2><p>Danh sách tự sinh: hỏi thăm 3–10 ngày sau buổi điều trị, nhắc công nợ, nhắc gói sắp hết hạn. Ghi lại cuộc gọi thì khách rời danh sách 14 ngày.</p></div>
+    <div class="grid g2"><div class="card"><h3>Cần gọi ${pill(L.length ? "pend" : "mute", L.length)}</h3><div class="list">${L.slice(0, 25).map((x, i) => { const c = S.customer(x.customerId); return `<div class="li" style="flex-wrap:wrap"><span style="flex:1;min-width:180px">${pill(...KL[x.kind])} <b>${esc(c.name)}</b> <span class="hint">${maskPhone(c.last5)}</span><div class="hint">${esc(x.label)}</div></span><span class="row" style="gap:6px;width:100%"><input id="care-${i}" placeholder="Nội dung đã trao đổi" style="flex:1;min-width:150px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--card)"><button class="btn sm pri" data-care="${i}">Đã gọi</button><button class="btn sm" data-opencus="${c.id}">Hồ sơ</button></span></div>`; }).join("") || `<div class="hint">Không có ai cần gọi.</div>`}</div></div>
+    <div class="card"><h3>Đã chăm sóc gần đây</h3><div class="list">${logs.map(l => `<div class="li"><span><b>${esc(S.customer(l.customerId).name)}</b><div class="hint">${esc(l.note)}</div></span><span class="amt hint">${vnDate(l.at)}<div>${esc(sname(l.by))}</div></span></div>`).join("") || `<div class="hint">Chưa có.</div>`}</div></div></div>`;
+  }
+
+  // =================== GÓI 15 TRIỆU ===================
+  function statusPill(c) { const m = { SIGNED: ["pend", "Đã ký · chưa thu đủ"], ACTIVE: ["pos", "Đang hiệu lực"], CONSUMED: ["mute", "Đã dùng hết"], EXPIRED: ["neg", "Hết hạn"], TERMINATED: ["neg", "Chấm dứt"], CANCELLED: ["neg", "Đã huỷ"] }[c.status]; return pill(m[0], m[1]); }
+  function nextStep(c) {
+    const lines = S.s.selections.filter(x => x.contractId === c.id).flatMap(x => x.lines);
+    if (c.status === "SIGNED") return { t: "Thu nốt tiền gói", d: `Còn phải thu ${vnd(PKG_PRICE - S.paid(c.id))}đ. Thu đủ thì ví 30.000.000đ mở.`, go: "sec-thu" };
+    if (c.status !== "ACTIVE") return { t: "Hợp đồng đã kết thúc", d: "Xem sao kê ví bên dưới.", go: "sec-saoke" };
+    if (lines.some(l => l.state === "CHO_BAC_SI")) return { t: "Chờ bác sĩ chỉ định", d: "Khách đã chọn. Bác sĩ khám rồi xác nhận mục được làm.", go: "sec-chidinh" };
+    if (lines.some(l => l.state === "DA_CHI_DINH")) return { t: "Ghi nhận sử dụng", d: "Mục đã được chỉ định. Khách nhập PIN để trừ ví.", go: "sec-chidinh" };
+    if (!lines.some(l => l.code.startsWith("A"))) return { t: "Lập phiếu chọn", d: "Khách chọn 1 gói chính (và dịch vụ da liễu nếu muốn).", go: "sec-phieu" };
+    return { t: `Ví còn ${vnd(S.balance(c.id))}đ`, d: "Khách chọn tiếp dịch vụ da liễu để trừ ví.", go: "sec-phieu" };
+  }
+  function viewPackage() {
+    const s = S.s, sc = S.scope(), q = ui.q.trim().toLowerCase();
+    const scoped = s.contracts.slice().reverse().filter(c => sc.all || sc.frontDesk || sc.ids.includes(c.soldById));
+    const filt = scoped.filter(c => { if (!q) return true; const o = S.customer(c.customerId); return c.code.toLowerCase().includes(q) || o.name.toLowerCase().includes(q) || o.last5.endsWith(q) || S.partner(c.ownerPartnerId).code.toLowerCase().includes(q); });
+    if (role() === "DOCTOR" && !q) filt.sort((x, y) => (s.selections.some(z => z.contractId === y.id && z.lines.some(l => l.state === "CHO_BAC_SI")) ? 1 : 0) - (s.selections.some(z => z.contractId === x.id && z.lines.some(l => l.state === "CHO_BAC_SI")) ? 1 : 0));
+    if (!ui.contractId || !S.contract(ui.contractId) || !scoped.some(c => c.id === ui.contractId)) ui.contractId = filt[0] ? filt[0].id : null;
+    const list = filt.slice(0, ui.showAll ? 60 : 8), pre = ui.sellPrefill || {};
+    const preCus = pre.customerId ? S.customer(pre.customerId) : null;
+    return `<div class="head"><h2>Gói 15 triệu</h2><p>Khách trả 15.000.000đ, nhận ví 30.000.000đ giá trị dịch vụ (12 tháng) và trở thành Đối tác có mã giới thiệu riêng.</p></div>
+    <div class="split"><div class="stack">${S.can("sell") ? `<details class="card" id="sellBox" ${ui.sellOpen ? "open" : ""}><summary class="sumh">+ Bán gói cho khách</summary><form id="sellForm" class="stack" style="margin-top:12px" autocomplete="off">
+      ${preCus ? `<div class="okbox">Bán cho: <b>${esc(preCus.name)}</b> (${preCus.code})${preCus.referrerPartnerId ? ` · người giới thiệu: ${esc(S.partnerName(preCus.referrerPartnerId))}` : ""}<input type="hidden" id="sCus" value="${preCus.id}"></div>` : `<div class="row"><div class="fld"><label for="sName">Họ tên người mua</label><input id="sName" value="${esc(pre.name || "")}"></div><div class="fld" style="flex:0 1 130px"><label for="sL5">5 số cuối SĐT</label><input id="sL5" inputmode="numeric" maxlength="5" value="${esc(pre.l5 || "")}"></div></div>`}
+      <div class="row"><div class="fld"><label for="sRef">Mã đối tác giới thiệu</label><input id="sRef" style="text-transform:uppercase" value="${esc(pre.ref || "")}"><div id="refInfo" class="hint">${pre.ref && S.partnerByCode(pre.ref) ? `<span class="ok">✓ ${esc(S.partnerName(S.partnerByCode(pre.ref).id))}</span>` : "Ví dụ HP-2K7Q (chị Hạnh)."}</div></div><div class="fld" style="flex:0 1 130px"><label for="sPin">PIN khách đặt (6 số)</label><input id="sPin" inputmode="numeric" maxlength="6" value="${esc(pre.pin || "")}"></div></div>
+      <div class="fld"><label for="sPay">Thu lần này</label><select id="sPay"><option value="15000000">Thu đủ 15.000.000đ</option><option value="10000000">Thu trước 10.000.000đ</option><option value="5000000">Thu trước 5.000.000đ</option><option value="0">Chưa thu</option></select></div>
+      <div class="row"><button class="btn pri" type="submit">Ký hợp đồng & thu tiền</button>${preCus ? `<button class="btn" type="button" data-clearsell="1">Bán cho khách khác</button>` : `<button class="btn" type="button" data-sample-sell="1">Điền dữ liệu mẫu</button>`}</div></form></details>` : `<div class="card hint">${role() === "DOCTOR" ? "Bác sĩ: hợp đồng có phiếu chờ chỉ định được xếp lên đầu." : "Chế độ chỉ xem."}</div>`}
+      <div class="card"><h3>Hợp đồng ${pill("mute", filt.length)}</h3><div class="fld" style="margin-bottom:8px"><label for="q">Tìm tên, 5 số cuối, mã hợp đồng/đối tác</label><input id="q" value="${esc(ui.q)}" autocomplete="off"></div>
+      <div class="list">${list.map(c => { const o = S.customer(c.customerId), wait = s.selections.some(z => z.contractId === c.id && z.lines.some(l => l.state === "CHO_BAC_SI")); return `<button class="crow ${c.id === ui.contractId ? "on" : ""}" data-contract="${c.id}"><span><b>${esc(o.name)}</b> <span class="hint">${maskPhone(o.last5)}</span><span class="mono hint" style="display:block">${c.code}</span></span><span style="text-align:right"><span class="num">${vnd(S.balance(c.id))}đ</span><span style="display:block">${wait ? pill("pend", "Chờ bác sĩ") : statusPill(c)}</span></span></button>`; }).join("") || `<div class="hint">Không có.</div>`}</div>
+      ${filt.length > list.length ? `<button class="btn sm" data-showall="1" style="margin-top:8px">Xem thêm ${filt.length - list.length}</button>` : ""}</div></div>
+    <div id="panel">${ui.contractId ? contractPanel(S.contract(ui.contractId)) : `<div class="card">Chưa có hợp đồng.</div>`}</div></div>`;
+  }
+  function contractPanel(c) {
+    const s = S.s, owner = S.partner(c.ownerPartnerId), cus = S.customer(c.customerId), bal = S.balance(c.id), paid = S.paid(c.id);
+    const isDoc = role() === "DOCTOR", sels = s.selections.filter(x => x.contractId === c.id), ent = s.wallet.filter(w => w.contractId === c.id), coms = s.commissions.filter(e => e.contractId === c.id), ns = nextStep(c);
+    const due = PKG_PRICE - s.pkgPayments.filter(p => p.contractId === c.id && p.kind === "PAYMENT").reduce((a, p) => a + p.amount, 0);
+    return `<div class="stack"><div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap"><div style="min-width:0;flex:1"><div style="font-size:18px;font-weight:800">${esc(cus.name)} <span class="hint" style="font-weight:500">${maskPhone(cus.last5)}</span></div>
+      <div class="hint"><span class="mono">${c.code}</span> · mã đối tác <span class="mono">${owner.code}</span> · bán bởi ${esc(sname(c.soldById))}</div>
+      <div class="hint">Người giới thiệu: <b>${c.attributedPartnerId ? esc(S.partnerName(c.attributedPartnerId)) + " (" + S.partner(c.attributedPartnerId).code + ")" : "không có"}</b>${c.countsForKpi ? "" : " · " + pill("mute", "Gói thứ 2 — không tính KPI")}</div></div><span>${statusPill(c)}</span></div>
+      <div class="grid g3" style="margin-top:12px"><div><div class="hint">Ví quyền lợi</div><div style="font-size:21px;font-weight:800">${vndH(bal)}</div><div class="prog"><i style="width:${bal / ENTITLEMENT * 100}%"></i></div><div class="hint">${c.expiresAt ? "Hạn " + vnDate(c.expiresAt) : "Chưa kích hoạt"}</div></div><div><div class="hint">Đã thu (ròng)</div><div style="font-size:21px;font-weight:800">${vndH(paid)}</div></div><div><div class="hint">Nếu dừng hôm nay, hoàn (F1)</div><div style="font-size:21px;font-weight:800">${vndH(c.status === "ACTIVE" ? F.refundUnused(bal) : 0)}</div>${c.refundDueAt ? pill("neg", "Hạn hoàn " + vnDate(c.refundDueAt)) : ""}</div></div>
+      <div class="row" style="margin-top:10px"><button class="btn sm" data-dockind="hd" data-id="${c.id}">Hợp đồng</button>${c.refundDueAt ? `<button class="btn sm" data-dockind="bb" data-id="${c.id}">Biên bản hoàn tiền</button>` : ""}<button class="btn sm" data-opencus="${cus.id}">Hồ sơ khách</button></div></div>
+      <a class="next" href="#${ns.go}" data-goto="${ns.go}"><span class="k">Việc tiếp theo</span><b>${ns.t}</b><span class="hint">${ns.d}</span></a>
+      ${c.status === "SIGNED" ? `<div class="card" id="sec-thu"><h3>Thu tiền gói</h3><div class="row"><div class="fld"><label for="colAmt">Số tiền thu thêm</label><input id="colAmt" inputmode="numeric" value="${due}"></div>${btn("collect", `data-collect="${c.id}"`, "Thu tiền")}</div><div class="row" style="margin-top:8px">${btn("end", `data-cancel="${c.id}"`, "Huỷ, hoàn số đã thu", { cls: "warn", sm: true })}</div></div>` : ""}
+      ${sels.length ? `<div class="card" id="sec-chidinh"><h3>Chỉ định & ghi nhận sử dụng</h3>${sels.map(x => selBlock(x, c, isDoc)).join('<div class="sep" style="margin:12px 0"></div>')}</div>` : ""}
+      ${c.status === "ACTIVE" && !isDoc ? `<details class="card" id="sec-phieu" ${ns.go === "sec-phieu" ? "open" : ""}><summary class="sumh">Phiếu chọn của khách</summary><div style="margin-top:12px">${selForm(c)}</div></details>` : ""}
+      <details class="card" id="sec-saoke"><summary class="sumh">Sao kê ví · ${ent.length} bút toán</summary><div class="tbl" style="margin-top:10px"><table><thead><tr><th>Ngày</th><th>Nội dung</th><th class="r">Phát sinh</th><th class="r">Số dư</th></tr></thead><tbody>${(() => { let run = 0; return ent.map(w => { run += w.amount; return `<tr><td>${vnDate(w.at)}</td><td>${esc(w.label)}</td><td class="r" style="color:${w.amount < 0 ? "var(--neg)" : "var(--pos)"}">${w.amount > 0 ? "+" : ""}${vndH(w.amount)}</td><td class="r">${vndH(run)}</td></tr>`; }).join("") || `<tr><td colspan="4" class="hint">Ví chưa kích hoạt.</td></tr>`; })()}</tbody></table></div>
+      ${!isDoc && coms.length ? `<div class="list" style="margin-top:10px">${coms.map(e => `<div class="li"><span>${TYPE_LABEL[e.type]} · ${esc(S.partnerName(e.partnerId))}<div class="hint">${esc(e.note || "")}</div></span><span class="amt">${vndH(e.amount)} ${cPill(e)}</span></div>`).join("")}</div>` : ""}</details>
+      ${c.status === "ACTIVE" ? `<details class="card"><summary class="sumh">Kết thúc hợp đồng</summary><div class="row" style="margin-top:12px">${btn("end", `data-end="${c.id}" data-reason="EXPIRED"`, "Hết hạn: hoàn phần chưa dùng", { cls: "", sm: true })}${btn("end", `data-end="${c.id}" data-reason="TERMINATED"`, "Chấm dứt: hoàn phần chưa dùng", { cls: "", sm: true })}${S.used(c.id) === 0 ? btn("end", `data-cancel="${c.id}"`, "Huỷ hợp đồng, hoàn toàn bộ", { cls: "warn", sm: true }) : ""}</div></details>` : ""}
+      ${isDoc ? `<p class="hint">Bác sĩ: các con số hoa hồng được ẩn.</p>` : ""}</div>`;
+  }
+  function selForm(c) {
+    const has = S.s.selections.some(s => s.contractId === c.id && s.lines.some(l => l.code.startsWith("A")));
+    return `<form id="selForm" data-cid="${c.id}" class="stack">${has ? `<p class="hint" style="margin:0">Đã chọn gói chính. Số dư còn lại dùng cho dịch vụ da liễu.</p>` : `<div class="hint">A. Chọn 01 gói chính (giá gói 15.000.000đ — giá trị quyền lợi 30.000.000đ)</div>
+      <div class="stack">${CAT.BUNDLES.map(b => `<label class="bundle" style="display:block"><span class="chk" style="padding:0"><input type="radio" name="bundle" value="${b.code}"><span><b>${b.code}. ${esc(b.name)}</b> — ${vnd(b.value)}đ ${b.note ? `<span class="hint">· ${esc(b.note)}</span>` : ""}${b.review ? `<span class="hint" style="display:block;color:var(--pend)">${esc(b.review)}</span>` : ""}</span></span>${b.opts.length ? `<span class="opts">${b.opts.map(o => `<label class="chk"><input type="checkbox" name="opt-${b.code}" value="${esc(o)}">${esc(o)}</label>`).join("")}</span>` : ""}</label>`).join("")}</div>`}
+      <div class="row"><div class="fld"><label for="selB">B. Dịch vụ da liễu trừ ví (không bắt buộc)</label><select id="selB"><option value="">— Không chọn —</option>${CAT.GROUPS.map(([g, l]) => `<optgroup label="${esc(l)}">${CAT.SERVICES.filter(i => i.group === g).map(i => `<option value="${i.code}">${esc(i.name)} — ${vnd(i.price)}${i.unit}</option>`).join("")}</optgroup>`).join("")}</select></div><div class="fld" style="flex:0 1 80px"><label for="selQ">SL</label><input id="selQ" type="number" min="1" value="1"></div></div>
+      <div class="row">${submitBtn("select", "Lưu phiếu chọn")}<span class="hint">Đây là mong muốn của khách; bác sĩ chỉ định sau khi khám.</span></div></form>`;
+  }
+  function selBlock(sel, c, isDoc) {
+    const SP = { CHO_BAC_SI: ["pend", "Chờ bác sĩ"], DA_CHI_DINH: ["pos", "Đã chỉ định"], KHONG_CHI_DINH: ["mute", "Không chỉ định"], DA_DUNG: ["mute", "Đã sử dụng"] };
+    return `<div class="stack"><div class="hint">Phiếu ${sel.code} · ${vnDate(sel.at)} · lập bởi ${esc(sname(sel.by))}${sel.doctor ? " · bác sĩ " + esc(sname(sel.doctor)) : ""} <button class="btn sm" data-dockind="pc" data-id="${sel.id}">Phiếu chọn</button></div>
+      ${sel.lines.map((l, i) => { const value = l.unitValue * l.qty, bal = S.balance(c.id), over = Math.max(0, value - bal);
+        return `<div class="bundle ${l.state === "DA_CHI_DINH" ? "on" : ""}"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>${esc(l.name)}</b>${pill(...SP[l.state])}<span class="num" style="margin-left:auto">${vnd(l.unitValue)}đ × ${l.qty}</span></div>
+        ${l.state === "CHO_BAC_SI" ? `<div class="row" style="margin-top:8px">${S.can("prescribe") ? `<div class="fld" style="flex:0 1 100px"><label for="rx-${sel.id}-${i}">Số lượng</label><input id="rx-${sel.id}-${i}" type="number" min="1" value="${l.qty}"></div>` : ""}${btn("prescribe", `data-rx="${sel.id}" data-i="${i}" data-ok="1"`, "Chỉ định", { sm: true })}${S.can("prescribe") ? `<button class="btn sm" data-rx="${sel.id}" data-i="${i}" data-ok="0">Không chỉ định</button>` : ""}</div>` : ""}
+        ${l.state === "DA_CHI_DINH" && !isDoc && c.status === "ACTIVE" ? `<div class="stack" style="margin-top:8px"><div>Trừ ví <b class="num">${vnd(Math.min(value, bal))}đ</b> → còn <b class="num">${vnd(Math.max(0, bal - value))}đ</b>${over > 0 ? ` · <span class="err">vượt ví ${vnd(over)}đ</span>` : ""}</div>
+          ${over > 0 ? `<label class="chk"><input type="checkbox" id="oc-${sel.id}-${i}">Khách đồng ý trước phần vượt ${vnd(over)}đ (thu riêng)</label><div class="fld" style="max-width:220px"><label for="op-${sel.id}-${i}">Thu phần vượt ngay</label><input id="op-${sel.id}-${i}" inputmode="numeric" value="${over}"></div>` : ""}
+          <div class="row"><div class="fld" style="flex:0 1 170px"><label for="pin-${sel.id}-${i}">Khách nhập PIN</label><input id="pin-${sel.id}-${i}" inputmode="numeric" maxlength="6"></div>${btn("redeem", `data-redeem="${sel.id}" data-i="${i}"`, "Ghi nhận sử dụng")}</div><div class="hint">Bản thử: PIN của khách này là <b class="mono">${esc(c.pin)}</b>. Ghi nhận sẽ tạo dòng 0đ trong hồ sơ điều trị để KTV ghi buổi.</div></div>` : ""}</div>`; }).join("")}</div>`;
+  }
+
+  // =================== MẠNG LƯỚI & TRUY NGUỒN ===================
+  const TYPE_LABEL = { REFERRAL_FLAT: "Giới thiệu gói (tầng 1)", ADDON_PCT: "Dịch vụ ngoài gói", NETWORK: "Thưởng tuyến (tầng 2)", OFFSET: "Bù trừ", CLAWBACK: "Thu hồi", MILESTONE_BONUS: "Thưởng mốc" };
+  function cPill(e) { const m = { PENDING: ["pend", "Chờ đối soát"], ELIGIBLE: ["pos", "Khả dụng"], IN_BATCH: ["pend", "Trong lô"], PAID: ["pos", "Đã trả"], VOID: ["mute", "Đã huỷ"] }[e.state]; return pill(m[0], m[1]); }
+  const rankOf = n => n >= 60 ? pill("gold", "Đủ mốc 5% (60 HĐ)") : n >= 50 ? pill("pos", "Đủ mốc 2% (50 HĐ)") : pill("mute", "Đối tác");
+  function viewNetwork() {
+    const s = S.s, net = S.cfg.network, pq = ui.pq.trim().toLowerCase();
+    const ps = s.partners.map(p => ({ p, n: S.kpiCount(p.id), name: S.partnerName(p.id) })).filter(x => !pq || x.name.toLowerCase().includes(pq) || x.p.code.toLowerCase().includes(pq)).sort((a, b) => b.n - a.n);
+    if (!ui.partnerId || !S.partner(ui.partnerId)) ui.partnerId = (s.partners.find(p => p.code === "HP-2K7Q") || s.partners[0]).id;
+    const tq = ui.trace.trim(); const tr = tq ? S.findCustomers(tq).slice(0, 5) : [];
+    return `<div class="head"><h2>Mạng lưới & truy nguồn</h2><p>Mô hình 2 cấp: đối tác giới thiệu trực tiếp (tầng 1) và người đã giới thiệu đối tác đó (tầng 2). Truy ngược nguồn gốc bất kỳ khách nào.</p></div>
+    <div class="${net.enabled ? "okbox" : "hl-box"}" style="margin-bottom:14px">${net.enabled ? `<b>Thưởng tầng 2 đang BẬT</b> theo giấy chứng nhận ${esc(net.licenseNo)}: ${net.levels.filter(l => l.bps).map(l => `tầng ${l.level} = ${l.bps / 100}% giá gói (F1 đạt ${l.minChildContracts} HĐ, đồng hành ${l.minMonths} tháng)`).join("; ")}.` : `<b>Thưởng tầng 2 đang KHOÁ.</b> App vẫn ghi nhận đầy đủ cây 2 cấp để truy nguồn; chỉ phần chi thưởng từ doanh số tầng dưới chờ giấy chứng nhận đăng ký bán hàng đa cấp + ý kiến luật sư (bật ở Cài đặt).`}</div>
+    <div class="card" style="margin-bottom:14px"><h3>Truy nguồn khách</h3><div class="fld"><label for="trace">Gõ tên hoặc 5 số cuối SĐT của khách</label><input id="trace" value="${esc(ui.trace)}" autocomplete="off"></div>
+      <div class="list" style="margin-top:6px">${tr.map(c => `<div class="li" style="flex-wrap:wrap"><span style="flex:1">${chainHtml(c)}</span><span class="amt"><button class="btn sm" data-opencus-journey="${c.id}">Hành trình</button></span></div>`).join("") || (tq ? `<div class="hint">Không thấy khách.</div>` : "")}</div></div>
+    <div class="split"><div class="card"><h3>Đối tác ${pill("mute", ps.length)}</h3><div class="fld" style="margin-bottom:8px"><label for="pq">Tìm tên hoặc mã</label><input id="pq" value="${esc(ui.pq)}" autocomplete="off"></div>
+      <div class="list">${ps.slice(0, 14).map(x => `<button class="crow ${x.p.id === ui.partnerId ? "on" : ""}" data-netpartner="${x.p.id}"><span><b>${esc(x.name)}</b><span class="mono hint" style="display:block">${x.p.code}</span></span><span class="num">${x.n} HĐ</span></button>`).join("")}</div></div>
+    <div>${partnerNet(S.partner(ui.partnerId))}</div></div>`;
+  }
+  function partnerNet(p) {
+    const s = S.s, sp = p.sponsorId ? S.partner(p.sponsorId) : null, kids = S.children(p.id), gk = s.partners.filter(x => kids.some(k => k.id === x.sponsorId));
+    const b = S.broughtBy(p.id), n = S.kpiCount(p.id), e = S.earnings(p.id), seat = s.seats.s5.find(x => x.partnerId === p.id) || s.seats.s2.find(x => x.partnerId === p.id);
+    const rev = ids => s.payments.filter(x => ids.includes(x.customerId)).reduce((a, x) => a + x.amount, 0) + s.pkgPayments.filter(x => ids.includes(S.contract(x.contractId).customerId)).reduce((a, x) => a + x.amount, 0);
+    const node = x => `<button class="n" data-netpartner="${x.id}" style="cursor:pointer">${esc(S.partnerName(x.id))} <span class="mono">${x.code}</span></button>`;
+    return `<div class="stack"><div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start"><div style="flex:1;min-width:0"><div style="font-size:18px;font-weight:800">${esc(S.partnerName(p.id))} <span class="mono">${p.code}</span></div><div class="hint">Tham gia ${vnDate(p.joinedAt)} · ${n} hợp đồng gói hợp lệ ghi nhận trực tiếp</div></div><span>${rankOf(n)} ${seat ? pill("gold", "Có suất") : ""}</span></div>
+      <div class="prog" style="margin-top:8px"><i style="width:${Math.min(100, n / 60 * 100)}%"></i></div><div class="hint">Mốc 50 hợp đồng → xét suất 2% · mốc 60 → suất 5%</div>
+      <div class="row" style="margin-top:10px"><button class="btn sm" data-dockind="ds" data-id="${p.id}">Danh sách HĐ để ký công nhận</button><button class="btn sm" data-dockind="sk" data-id="${p.id}">Sao kê tháng</button><button class="btn sm" data-portal="${p.id}">Xem cổng của đối tác</button></div></div>
+    <div class="card"><h3>Sơ đồ 2 cấp</h3><div class="tree">
+      <div class="lvl"><span class="tag">Tuyến trên</span>${sp ? node(sp) : `<span class="hint">Không có (tự đến)</span>`}</div>
+      <div class="lvl"><span class="tag">Đối tác</span><span class="n me" style="border:1px solid var(--accent);border-radius:10px;padding:6px 10px;background:var(--a50);font-weight:700">${esc(S.partnerName(p.id))}</span></div>
+      <div class="lvl"><span class="tag">Tầng 1</span>${kids.slice(0, 12).map(node).join("") || `<span class="hint">Chưa giới thiệu đối tác nào</span>`}${kids.length > 12 ? `<span class="hint">+${kids.length - 12}</span>` : ""}</div>
+      <div class="lvl"><span class="tag">Tầng 2</span>${gk.length ? `<span class="hint">${gk.length} đối tác</span>` : `<span class="hint">—</span>`}</div></div></div>
+    <div class="grid g3"><div class="card kpi"><h3>Khách tầng 1</h3><div class="v num">${b.direct.length}</div><div class="s">Doanh thu ${short(rev(b.direct.map(x => x.id)))}</div></div><div class="card kpi"><h3>Khách tầng 2</h3><div class="v num">${b.level2.length}</div><div class="s">Doanh thu ${short(rev(b.level2.map(x => x.id)))}</div></div>${role() === "LEAD" ? "" : `<div class="card kpi"><h3>Thu nhập đối tác</h3><div class="v">${shortH(e.pending + e.available + e.paid)}</div><div class="s">Chờ ${short(e.pending)} · khả dụng ${short(e.available)} · đã trả ${short(e.paid)}</div></div>`}</div>
+    <div class="card"><h3>Khách do đối tác mang về (tầng 1)</h3><div class="tbl"><table><thead><tr><th>Khách</th><th>Đến lần đầu</th><th>Nguồn</th><th class="r">Đã chi</th></tr></thead><tbody>${b.direct.slice(-12).reverse().map(c => `<tr><td><button class="btn sm" data-opencus-journey="${c.id}" style="min-height:26px">${esc(c.name)}</button></td><td>${vnDate(c.createdAt)}</td><td>${esc(CAT.SOURCES[c.source] || "")}</td><td class="r">${vndH(rev([c.id]))}</td></tr>`).join("") || `<tr><td colspan="4" class="hint">Chưa có.</td></tr>`}</tbody></table></div></div>
+    ${S.can("seeMoney") && !["LEAD"].includes(role()) ? seatsCard() : ""}</div>`;
+  }
+  function seatsCard() {
+    const s = S.s, m = monthOf(S.today), ms = [2, 1, 0].map(k => addMonths(m + "-01", -k).slice(0, 7));
+    const row = (arr, max, gold) => Array.from({ length: max }, (_, i) => { const t = arr.find(x => x.no === i + 1); return `<span class="seat ${gold ? "gold" : ""} ${t ? "taken" : ""}" title="${t ? esc(S.partnerName(t.partnerId)) : "Trống"}">${i + 1}</span>`; }).join("");
+    const all = [...s.seats.s2.map(x => ({ ...x, rate: "2%", req: 1 })), ...s.seats.s5.map(x => ({ ...x, rate: "5%", req: 3 }))];
+    return `<details class="card"><summary class="sumh">Suất quyền lợi 2% / 5% và duy trì tháng</summary><div class="stack" style="margin-top:10px"><div class="hint">Suất 2% · ${s.seats.s2.length}/10</div><div class="seats">${row(s.seats.s2, 10)}</div><div class="hint">Suất 5% · ${s.seats.s5.length}/5</div><div class="seats">${row(s.seats.s5, 5, true)}</div>
+      <div class="tbl"><table><thead><tr><th>Đối tác</th><th>Suất</th>${ms.map(x => `<th>${vnMonth(x)}</th>`).join("")}<th>Đề xuất</th><th></th></tr></thead><tbody>${all.map(x => { const ev = evaluateMaintenance(ms.map(mm => ({ contracts: S.kpiCount(x.partnerId, mm), activities: s.activities.filter(a => a.partnerId === x.partnerId && a.month === mm).length })), x.req), last = ev[ev.length - 1];
+        return `<tr><td>${esc(S.partnerName(x.partnerId))}</td><td>${x.rate} · số ${x.no}</td>${ms.map(mm => { const mc = S.kpiCount(x.partnerId, mm), ma = s.activities.filter(a => a.partnerId === x.partnerId && a.month === mm).length; return `<td>${pill(mc >= x.req ? "pos" : "pend", "HĐ " + mc)} ${pill(ma ? "pos" : "neg", "NV " + ma)}</td>`; }).join("")}<td>${pill(last.status === "DAT" ? "pos" : ["NHAC", "KHONG_TINH"].includes(last.status) ? "pend" : "neg", ({ DAT: "Đạt", NHAC: "Chỉ nhắc", WARNED: "Soạn nhắc", MO_VU_VIEC: "Mở vụ việc", KHONG_TINH: "Không tính" })[last.status])}</td><td>${btn("activity", `data-activity="${x.partnerId}"`, "Ghi nhiệm vụ", { cls: "", sm: true })}</td></tr>`; }).join("")}</tbody></table></div>
+      <p class="hint">Hệ thống không bao giờ tự chấm dứt suất; chỉ Ban giám đốc quyết định sau khi đủ các mốc.</p></div></details>`;
+  }
+
+  // =================== HOA HỒNG ĐỐI TÁC ===================
+  function viewCommission() {
+    const s = S.s, m = monthOf(S.today), pm = prevMonth(m), by = st => s.commissions.filter(e => e.state === st), sum = a => a.reduce((x, e) => x + e.amount, 0);
+    const pendPrev = s.commissions.filter(e => e.state === "PENDING" && e.period <= pm), pendCur = s.commissions.filter(e => e.state === "PENDING" && e.period === m);
+    return `<div class="head"><h2>Hoa hồng đối tác</h2><p>Chờ → Khả dụng (đối soát tháng) → Trong lô → Đã trả. Kế toán lập lô, Ban giám đốc khác người lập duyệt. Không chuyển khoản tự động. Thuế TNCN đang tắt (D12).</p></div>
+    <div class="grid g5"><div class="card kpi"><h3>Chờ đối soát</h3><div class="v">${shortH(sum(by("PENDING")))}</div><div class="s">${by("PENDING").length} khoản</div></div><div class="card kpi"><h3>Khả dụng, chưa vào lô</h3><div class="v">${shortH(sum(by("ELIGIBLE").filter(e => !e.batchId)))}</div><div class="s">gồm bù trừ âm</div></div><div class="card kpi"><h3>Trong lô</h3><div class="v">${shortH(sum(by("IN_BATCH")))}</div></div><div class="card kpi"><h3>Đã trả từ đầu</h3><div class="v">${shortH(sum(by("PAID")))}</div></div></div>
+    <div class="grid g2" style="margin-top:14px"><div class="card stack"><h3>1 · Đối soát kỳ ${vnMonth(pm)}</h3><p class="hint" style="margin:0">${pendPrev.length} khoản chờ thuộc kỳ ${vnMonth(pm)} trở về trước. Hợp đồng đã huỷ tại ngày đối soát bị loại.</p><div class="row">${btn("reconcile", `data-reconcile="${pm}"`, `Đối soát kỳ ${vnMonth(pm)}`)}</div>
+      ${pendCur.length ? `<div class="hl-box"><b>${pendCur.length} khoản thuộc ${vnMonth(m)} (tháng đang chạy)</b> chỉ đối soát được khi hết tháng.<div class="row" style="margin-top:8px"><button class="btn sm" data-advance="1">Tua ngày sang ${vnDate(nextMonth(m) + "-02")} (bản thử)</button></div></div>` : ""}
+      <h3 style="margin-top:6px">2 · Lập lô chi trả</h3><p class="hint" style="margin:0">Gộp khoản khả dụng theo từng đối tác; tổng âm chuyển kỳ sau.</p><div class="row">${btn("batchCreate", `data-batch="1"`, "Lập lô")}</div></div>
+    <div class="card"><h3>3 · Lô chi trả</h3><div class="list">${s.batches.slice(0, 8).map(b => `<div class="li" style="flex-wrap:wrap"><span style="flex:1;min-width:180px"><b class="mono">${b.code}</b> · ${vndH(b.total)}<div class="hint">Lập: ${esc(sname(b.createdBy))} ${vnDate(b.createdAt)}${b.approvedBy ? ` · ${b.status === "TRA_LAI" ? "Trả lại" : "Duyệt"}: ${esc(sname(b.approvedBy))}` : ""}${b.paidAt ? " · chuyển " + vnDate(b.paidAt) : ""}</div></span>
+      <span class="row" style="gap:6px">${b.status === "CHO_DUYET" ? pill("pend", "Chờ duyệt") + btn("batchApprove", `data-approvebatch="${b.id}"`, "Duyệt", { sm: true, avoid: b.createdBy }) + (S.can("batchApprove") && S.actor().id !== b.createdBy ? `<button class="btn sm" data-rejectbatch="${b.id}">Trả lại</button>` : "") : b.status === "DA_DUYET" ? pill("pend", "Đã duyệt") + btn("batchPay", `data-paybatch="${b.id}"`, "Ghi đã chuyển", { sm: true }) : b.status === "DA_TRA" ? pill("pos", "Đã trả") : pill("mute", "Trả lại")}</span></div>`).join("") || `<div class="hint">Chưa có lô.</div>`}</div></div></div>
+    <div class="card" style="margin-top:14px"><h3>Bút toán gần nhất</h3><div class="tbl"><table><thead><tr><th>Ngày</th><th>Đối tác</th><th>Loại</th><th>Diễn giải</th><th>Kỳ</th><th class="r">Số tiền</th><th>Trạng thái</th></tr></thead><tbody>${s.commissions.slice().sort((a, b) => b.at.localeCompare(a.at)).slice(0, 25).map(e => `<tr><td>${vnDate(e.at)}</td><td>${esc(S.partnerName(e.partnerId))}</td><td>${TYPE_LABEL[e.type]}</td><td>${esc(e.note || "")}${e.rateBps ? ` <span class="hint">· ${e.rateBps / 100}%</span>` : ""}</td><td>${vnMonth(e.period)}</td><td class="r" style="color:${e.amount < 0 ? "var(--neg)" : "inherit"}">${vndH(e.amount)}</td><td>${cPill(e)}</td></tr>`).join("")}</tbody></table></div></div>`;
+  }
+
+  // =================== CỔNG ĐỐI TÁC ===================
+  const ICON = { home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>', wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M16 13h2M3 10h18"/></svg>', earn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>', team: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 20c.8-3.5 3.2-5 6-5s5.2 1.5 6 5M15 15.5c2.5-.3 4.8 1 5.5 4"/></svg>', me: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>' };
+  function viewPortal() {
+    const s = S.s, locked = S.actorPartnerId();
+    if (locked) ui.portalPartner = locked;
+    if (!ui.portalPartner || !S.partner(ui.portalPartner)) ui.portalPartner = (s.partners.find(p => p.code === "HP-2K7Q") || s.partners[0]).id;
+    const p = S.partner(ui.portalPartner), me = S.customer(p.customerId), seat = s.seats.s5.find(x => x.partnerId === p.id) || s.seats.s2.find(x => x.partnerId === p.id);
+    const tabs = [["home", "Trang chủ"], ["wallet", "Ví"], ["earn", "Thu nhập"], ["team", "Khách của tôi"], ["me", "Tôi"]];
+    return `<div class="head"><h2>Cổng đối tác</h2><p>Màn hình điện thoại của đối tác/khách: chỉ dữ liệu của chính mình; người mình giới thiệu chỉ hiện tên viết tắt và 3 số cuối SĐT; không có hồ sơ y khoa.</p></div>
+    ${locked ? `<div class="okbox" style="margin-bottom:14px">Bạn đang đăng nhập là khách hàng / đối tác: chỉ thấy dữ liệu của chính mình.</div>` : `<div class="row" style="margin-bottom:14px"><div class="fld" style="max-width:420px"><label for="pp">Xem cổng của</label><select id="pp">${s.partners.slice().sort((a, b) => S.partnerName(a.id).localeCompare(S.partnerName(b.id), "vi")).map(x => `<option value="${x.id}" ${x.id === p.id ? "selected" : ""}>${esc(S.partnerName(x.id))} · ${x.code}</option>`).join("")}</select></div></div>`}
+    <div class="portal-wrap"><div class="phone"><div class="ph-top"><div><div class="hint">Xin chào</div><div class="nm">${esc(me.name.split(" ").slice(-1)[0])}</div></div>${seat ? pill("gold", s.seats.s5.includes(seat) ? "Đối tác Cao cấp 5%" : "Đối tác Quyền lợi 2%") : pill("mute", "Đối tác")}</div>
+      ${portalTab(p, me, seat)}<nav class="ptabs">${tabs.map(([k, l]) => `<button data-ptab="${k}" class="${ui.ptab === k ? "on" : ""}">${ICON[k]}<span>${l}</span></button>`).join("")}</nav></div></div>`;
+  }
+  const initials = n => { const p = n.trim().split(/\s+/); return p.length > 1 ? p.slice(0, -1).map(w => w[0] + ".").join("") + " " + p[p.length - 1] : n; };
+  function portalTab(p, me, seat) {
+    const s = S.s, own = s.contracts.filter(c => c.ownerPartnerId === p.id).sort((a, b) => (b.status === "ACTIVE") - (a.status === "ACTIVE") || b.signedAt.localeCompare(a.signedAt)), c = own[0], bal = c ? S.balance(c.id) : 0, e = S.earnings(p.id), kpi = S.kpiCount(p.id);
+    const wallet = `<div class="wallet"><div class="bd">HỒNG PHÚC · TRUNG TÂM DA LIỄU</div><div class="wl">Ví quyền lợi</div><div class="wv num">${vnd(bal)}<small> / 30.000.000đ</small></div><div class="wbar"><i style="width:${bal / ENTITLEMENT * 100}%"></i></div><div class="wf2"><span>${c && c.expiresAt ? "Hạn " + vnDate(c.expiresAt) : c ? "Chưa kích hoạt" : "Chưa có gói"}</span><b>${p.code}</b></div></div>`;
+    const items = e.entries.slice().sort((a, b) => b.at.localeCompare(a.at));
+    const line = x => { const cc = x.contractId ? S.contract(x.contractId) : null, cu = cc ? S.customer(cc.customerId) : x.customerId ? S.customer(x.customerId) : null; const who = cu ? `${initials(cu.name)} (***${cu.last5.slice(-3)})` : "";
+      const what = x.type === "REFERRAL_FLAT" ? `${who} thanh toán đủ gói` : x.type === "ADDON_PCT" ? `${who} làm dịch vụ — ${x.rateBps / 100}%` : x.type === "NETWORK" ? `Thưởng tầng 2 — ${who}` : x.note;
+      const when = x.state === "PENDING" ? `Chờ đối soát cuối ${vnMonth(x.period)}` : x.state === "ELIGIBLE" ? "Khả dụng — vào lô kỳ tới" : x.state === "IN_BATCH" ? "Đang trong lô chi trả" : x.state === "PAID" ? "Đã trả " + vnDate(x.paidAt) : "Đã huỷ";
+      return `<div class="li"><span>${esc(what)}<div class="hint">${when}</div></span><span class="amt" style="color:${x.amount < 0 ? "var(--neg)" : x.state === "PAID" ? "var(--pos)" : "var(--pend)"}">${x.amount > 0 ? "+" : ""}${vnd(x.amount)}</span></div>`; };
+    const earn = `<div class="earn"><div class="pe"><div class="k">Chờ</div><div class="v num">${short(e.pending)}</div></div><div class="av"><div class="k">Khả dụng</div><div class="v num">${short(e.available)}</div></div><div><div class="k">Đã nhận</div><div class="v num">${short(e.paid)}</div></div></div>`;
+    if (ui.ptab === "home") { const target = kpi >= 50 ? 60 : 50, pct = Math.min(100, kpi / 60 * 100);
+      return `${wallet}<div class="psec"><h4>Thu nhập</h4>${earn}<div style="margin-top:8px">${items.slice(0, 3).map(line).join("") || `<div class="hint">Chưa có khoản nào. Chia sẻ mã ${p.code} để bắt đầu.</div>`}</div></div>
+      <div class="psec"><h4>Tiến tới mốc</h4><div class="prog"><i style="width:${pct}%"></i></div><div class="hint" style="margin-top:6px">${kpi} hợp đồng hợp lệ · còn ${Math.max(0, target - kpi)} tới mốc ${target}. Mốc là điều kiện xét công nhận, không phải cam kết thu nhập.</div></div>
+      <div class="psec"><h4>Mã giới thiệu</h4><div style="display:flex;gap:12px;align-items:center"><div class="qrbox" id="qr"></div><div><div class="mono" style="font-size:18px;font-weight:700">${p.code}</div><div class="hint">Đưa mã tại quầy để nhân viên ghi nhận đúng người giới thiệu.</div></div></div></div>`; }
+    if (ui.ptab === "wallet") { const ent = c ? s.wallet.filter(w => w.contractId === c.id) : [];
+      return `${wallet}<div class="psec"><h4>Sao kê ví ${c ? c.code : ""}</h4>${ent.map(w => `<div class="li"><span>${esc(w.label)}<div class="hint">${vnDate(w.at)}</div></span><span class="amt">${w.amount > 0 ? "+" : ""}${vnd(w.amount)}</span></div>`).join("") || `<div class="hint">Ví mở khi thanh toán đủ 15.000.000đ.</div>`}</div><div class="psec"><h4>Nếu dừng hôm nay</h4><div class="hint">Hoàn theo hợp đồng: 15.000.000 × số dư / 30.000.000 = <b class="num">${vnd(c && c.status === "ACTIVE" ? F.refundUnused(bal) : 0)}đ</b>, trong 15 ngày làm việc.</div></div>`; }
+    if (ui.ptab === "earn") return `<div class="psec"><h4>Thu nhập</h4>${earn}</div><div class="psec"><h4>Từng khoản (${items.length})</h4>${items.slice(0, 40).map(line).join("") || `<div class="hint">Chưa có.</div>`}<div class="hint" style="margin-top:8px">Thuế TNCN khấu trừ: 0đ (chưa áp dụng).</div></div>`;
+    if (ui.ptab === "team") { const b = S.broughtBy(p.id);
+      return `<div class="psec"><h4>Khách của tôi</h4><div class="earn" style="grid-template-columns:1fr 1fr"><div><div class="k">Tầng 1 (tôi giới thiệu)</div><div class="v num">${b.direct.length}</div></div><div><div class="k">Tầng 2</div><div class="v num">${b.level2.length}</div></div></div></div>
+      <div class="psec"><h4>Tầng 1</h4>${b.direct.slice(-15).reverse().map(x => `<div class="li"><span>${esc(initials(x.name))} <span class="hint">***${x.last5.slice(-3)}</span><div class="hint">Đến lần đầu ${vnDate(x.createdAt)}</div></span><span class="amt">${S.partnerOfCustomer(x.id) ? pill("gold", "Đối tác") : pill("mute", "Khách")}</span></div>`).join("") || `<div class="hint">Chưa có khách.</div>`}</div>`; }
+    return `<div class="psec"><h4>Tài khoản</h4><div class="li"><span>Họ tên</span><span class="amt">${esc(me.name)}</span></div><div class="li"><span>SĐT</span><span class="amt">${maskPhone(me.last5)}</span></div><div class="li"><span>Mã đối tác</span><span class="amt mono">${p.code}</span></div><div class="li"><span>Người giới thiệu tôi</span><span class="amt">${p.sponsorId ? esc(initials(S.partnerName(p.sponsorId))) : "—"}</span></div><div class="li"><span>Tham gia</span><span class="amt">${vnDate(p.joinedAt)}</span></div></div><div class="psec"><h4>Hợp đồng của tôi</h4>${own.map(x => `<div class="li"><span class="mono">${x.code}</span><span class="amt">${statusPill(x)}</span></div>`).join("")}</div>`;
+  }
+
+  // =================== TỔNG QUAN ===================
+  function viewDashboard() {
+    const s = S.s, ms = last6(), m = ms[5], L = ms.map(mlabel);
+    const rev = ms.map(mm => S.monthSummary(mm).income), newC = ms.map(mm => s.customers.filter(c => monthOf(c.createdAt) === mm).length);
+    const active = s.contracts.filter(c => c.status === "ACTIVE"), oblig = active.reduce((a, c) => a + S.balance(c.id), 0), debt = s.treatments.reduce((a, t) => a + S.sumTreatment(t).debt, 0);
+    const pay = s.commissions.filter(e => ["PENDING", "ELIGIBLE", "IN_BATCH"].includes(e.state)).reduce((a, e) => a + e.amount, 0);
+    const src = {}; s.customers.filter(c => monthOf(c.createdAt) >= ms[3]).forEach(c => src[c.source] = (src[c.source] || 0) + 1); const srcMax = Math.max(1, ...Object.values(src));
+    const svc = {}; s.treatments.forEach(t => t.lines.filter(l => !l.walletEntryId).forEach(l => svc[l.name] = (svc[l.name] || 0) + l.finalPrice)); const top = Object.entries(svc).sort((a, b) => b[1] - a[1]).slice(0, 6), topMax = top.length ? top[0][1] : 1;
+    const ms_ = S.monthSummary(m), msp = S.monthSummary(ms[4]);
+    return `<div class="head"><h2>Tổng quan — ${vnMonth(m)}</h2><p>Số liệu thực thu, lấy thẳng từ sổ cái.</p></div>
+    <div class="grid g5"><div class="card kpi"><h3>Thực thu tháng</h3><div class="v">${shortH(ms_.income)}</div><div class="s">Dịch vụ ${short(ms_.treatmentIncome)} · gói ${short(ms_.packageIncome)}</div></div><div class="card kpi"><h3>Khách mới tháng</h3><div class="v num">${newC[5]}</div><div class="s">Tháng trước ${newC[4]}</div></div><div class="card kpi key"><h3>Nghĩa vụ dịch vụ còn nợ</h3><div class="v">${shortH(oblig)}</div><div class="s">${active.length} ví đang mở · dự phòng hoàn ${short(active.reduce((a, c) => a + F.refundUnused(S.balance(c.id)), 0))}</div></div><div class="card kpi"><h3>Công nợ khách</h3><div class="v">${shortH(debt)}</div></div><div class="card kpi"><h3>Hoa hồng phải trả</h3><div class="v">${shortH(pay)}</div></div></div>
+    <div class="grid g2" style="margin-top:14px"><div class="card"><h3>Thực thu theo tháng ${growth(msp.income, S.monthSummary(ms[3]).income)}</h3>${barChart(rev, L)}<p class="hint">% tăng/giảm so sánh 2 tháng đã kết thúc gần nhất.</p></div><div class="card"><h3>Khách mới theo tháng</h3>${barChart(newC, L, { fmt: String, unit: " khách" })}</div></div>
+    <div class="grid g2" style="margin-top:14px"><div class="card"><h3>Nguồn khách (3 tháng gần nhất)</h3><div class="bars">${Object.entries(src).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<div class="bar"><span>${esc(CAT.SOURCES[k] || k)}</span><div class="track"><i style="width:${n / srcMax * 100}%"></i></div><b class="num" style="text-align:right">${n}</b></div>`).join("")}</div></div>
+    <div class="card"><h3>Dịch vụ doanh thu cao nhất</h3><div class="bars">${top.map(([k, v]) => `<div class="bar"><span>${esc(k)}</span><div class="track"><i style="width:${v / topMax * 100}%"></i></div><b class="num" style="text-align:right">${short(v)}</b></div>`).join("")}</div></div></div>`;
+  }
+
+  // =================== HIỆU SUẤT ===================
+  function staffMonth(id, m) {
+    const pays = S.s.payments.filter(p => monthOf(p.at) === m), tr = id2 => S.treatment(id2);
+    return { consult: pays.filter(p => tr(p.treatmentId).consultantId === id).reduce((a, p) => a + p.amount, 0), doctor: pays.filter(p => tr(p.treatmentId).doctorId === id).reduce((a, p) => a + p.amount, 0), sessions: S.s.sessions.filter(x => monthOf(x.at) === m && (x.techId === id || (S.staff(id).role === "DOCTOR" && x.doctorId === id))).length, pkgs: S.s.contracts.filter(c => c.soldById === id && c.fullyPaidAt && monthOf(c.fullyPaidAt) === m).length };
+  }
+  function viewPerf() {
+    const a = S.actor(), sc = S.scope(), ms = last6(), m = ms[5], pm = ms[4], L = ms.map(mlabel), parts = [];
+    parts.push(`<div class="head"><h2>Hiệu suất</h2>${pill(sc.all ? "pos" : "pend", "Phạm vi: " + sc.label)}${role() === "SHAREHOLDER" ? pill("mute", "Chỉ xem") : ""}<p>6 tháng gần nhất; cột nhạt là tháng đang chạy; % so sánh ${mlabel(pm)} với ${mlabel(ms[3])}.</p></div>`);
+    const sellers = STAFF.filter(x => ["LEAD", "CONSULTANT", "RECEPTION"].includes(x.role) && (sc.all || sc.ids.includes(x.id)));
+    if (sc.all) { const teams = Object.keys(TEAMS).filter(t => ["TV1", "TV2", "QUAY"].includes(t));
+      parts.push(`<div class="card"><h3>Theo nhóm — doanh thu tư vấn (thực thu)</h3><div class="grid g3">${teams.map(t => { const mem = STAFF.filter(x => x.team === t); const v = ms.map(mm => mem.reduce((s2, x) => s2 + staffMonth(x.id, mm).consult, 0)); return `<div><div style="display:flex;gap:8px;flex-wrap:wrap"><b>${TEAMS[t]}</b><span class="hint">${mem.length} người</span><span style="margin-left:auto">${growth(v[4], v[3])}</span></div>${barChart(v, L, { h: 110 })}</div>`; }).join("")}</div></div>`); }
+    if (["LEAD", "CONSULTANT", "RECEPTION"].includes(role()) || sc.all) {
+      const rows = sellers.map(x => ({ x, cur: staffMonth(x.id, m), prev: staffMonth(x.id, pm), pp: staffMonth(x.id, ms[3]), hist: ms.map(mm => staffMonth(x.id, mm).consult) })).sort((p, q) => q.cur.consult - p.cur.consult);
+      if (rows.length === 1) { const r = rows[0]; parts.push(`<div class="grid g5"><div class="card kpi"><h3>Doanh thu tư vấn tháng này</h3><div class="v">${shortH(r.cur.consult)}</div><div class="s">Tháng trước ${short(r.prev.consult)} ${growth(r.prev.consult, r.pp.consult)}</div></div><div class="card kpi"><h3>Gói bán tháng này</h3><div class="v num">${r.cur.pkgs}</div></div><div class="card kpi"><h3>Hoa hồng tư vấn ước tính</h3><div class="v">${shortH(F.pct(r.cur.consult, S.cfg.staff.consultBps))}</div><div class="s">${S.cfg.staff.consultBps / 100}% thực thu</div></div></div><div class="card" style="margin-top:14px"><h3>Doanh thu tư vấn của bạn</h3>${barChart(r.hist, L)}</div>`); }
+      else if (rows.length) parts.push(`<div class="card" style="margin-top:14px"><h3>Theo nhân sự — ${vnMonth(m)}</h3><div class="tbl"><table><thead><tr><th>Nhân sự</th><th>Nhóm</th><th class="r">Doanh thu tư vấn</th><th class="r">Gói bán</th><th>${mlabel(pm)} so ${mlabel(ms[3])}</th><th>6 tháng</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.x.name)}<div class="hint">${esc(r.x.label)}</div></td><td>${TEAMS[r.x.team] || ""}</td><td class="r">${vndH(r.cur.consult)}</td><td class="r num">${r.cur.pkgs}</td><td>${growth(r.prev.consult, r.pp.consult)}</td><td data-tip="${esc(r.hist.map((v, i) => L[i] + ": " + short(v)).join(" · "))}">${spark(r.hist)}</td></tr>`).join("")}</tbody></table></div></div>`);
+    }
+    const docs = STAFF.filter(x => x.role === "DOCTOR" && (sc.all || x.id === a.id)), techs = STAFF.filter(x => x.role === "TECH" && (sc.all || x.id === a.id));
+    if (docs.length) parts.push(`<div class="card" style="margin-top:14px"><h3>Bác sĩ — doanh thu hồ sơ phụ trách</h3><div class="grid g3">${docs.map(x => { const v = ms.map(mm => staffMonth(x.id, mm).doctor); return `<div><div style="display:flex;gap:8px"><b>${esc(x.name)}</b><span style="margin-left:auto">${growth(v[4], v[3])}</span></div>${barChart(v, L, { h: 110 })}<div class="hint">Tháng này ${staffMonth(x.id, m).sessions} buổi · thù lao ước ${short(F.pct(v[5], S.cfg.staff.doctorBps))}</div></div>`; }).join("")}</div></div>`);
+    if (techs.length) parts.push(`<div class="card" style="margin-top:14px"><h3>Kỹ thuật viên — số buổi</h3><div class="grid g3">${techs.map(x => { const v = ms.map(mm => staffMonth(x.id, mm).sessions); return `<div><b>${esc(x.name)}</b>${barChart(v, L, { fmt: String, unit: " buổi", h: 110 })}<div class="hint">Thù lao tháng này ${vnd(v[5] * S.cfg.staff.techFee)}đ (${vnd(S.cfg.staff.techFee)}đ/buổi)</div></div>`; }).join("")}</div></div>`);
+    const leaders = STAFF.filter(x => x.pctBps && (sc.all || x.id === a.id));
+    if (leaders.length) parts.push(`<div class="card" style="margin-top:14px"><h3>Thu nhập theo % doanh số tổng</h3><div class="grid g3">${leaders.map(x => { const v = ms.map(mm => (x.base || 0) + F.pct(Math.max(0, S.programRevenue(mm)), x.pctBps)); return `<div><div style="display:flex;gap:8px;flex-wrap:wrap"><b>${esc(x.name)}</b><span class="hint">${x.base ? vnd(x.base) + "đ + " : ""}${x.pctBps / 100}%</span></div>${barChart(v, L, { h: 110 })}</div>`; }).join("")}</div><p class="hint">Theo bảng chi phí cố định vận hành. "Doanh số tổng" mặc định = thực thu chương trình đối tác (D5) — đổi ở Cài đặt.</p></div>`);
+    if (sc.all) { const top = S.s.partners.map(p => ({ p, v: ms.map(mm => S.s.commissions.filter(e => e.partnerId === p.id && e.state !== "VOID" && monthOf(e.at) === mm).reduce((x, e) => x + e.amount, 0)) })).map(o => ({ ...o, t: o.v.reduce((x, y) => x + y, 0) })).filter(o => o.t > 0).sort((x, y) => y.t - x.t).slice(0, 6);
+      parts.push(`<div class="card" style="margin-top:14px"><h3>Hoa hồng đối tác phát sinh (6 người cao nhất)</h3><div class="grid g3">${top.map(o => `<div><div style="display:flex;gap:8px"><b>${esc(S.partnerName(o.p.id))}</b><span style="margin-left:auto" class="num">${short(o.t)}</span></div>${barChart(o.v, L, { h: 100 })}</div>`).join("")}</div><p class="hint">Chỉ Ban giám đốc, kế toán, cổ đông xem được; đối tác không thấy bảng này.</p></div>`); }
+    return parts.join("");
+  }
+
+  // =================== THU CHI & CHỨNG TỪ ===================
+  const CATS = { MAT_BANG: "Mặt bằng", VAT_TU: "Vật tư – dược mỹ phẩm", MARKETING: "Marketing", LUONG: "Lương nhân sự", HOA_HONG: "Hoa hồng đối tác", KHAC: "Chi khác" };
+  function viewFinance() {
+    const ms = last6(); const m = ui.fmonth || ms[4]; const sm = S.monthSummary(m), closed = S.isClosed(m), per = S.s.periods.find(p => p.month === m && !p.reopenedAt);
+    const reqs = S.s.requests.filter(r => ui.reqTab === "ALL" || r.status === ui.reqTab).slice().reverse().slice(0, 30);
+    return `<div class="head"><h2>Thu chi & chứng từ</h2><p>Thu tự ghi từ phiếu thu dịch vụ và gói. Chi qua Giấy đề nghị thanh toán: lập → Ban giám đốc duyệt (khác người lập) → kế toán chi. Tháng đã chốt sổ không ghi thêm.</p></div>
+    <div class="row" style="margin-bottom:12px"><div class="fld" style="max-width:220px"><label for="fm">Tháng</label><select id="fm">${ms.slice().reverse().map(x => `<option value="${x}" ${x === m ? "selected" : ""}>${vnMonth(x)}${S.isClosed(x) ? " · đã chốt" : ""}</option>`).join("")}</select></div>
+      ${closed ? `${pill("pos", "Đã chốt sổ " + vnDate(per.closedAt) + " · " + sname(per.closedBy))} ${S.can("closeMonth") ? `<input id="reopenR" placeholder="Lý do mở lại" style="border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--card)"><button class="btn sm" data-reopen="${m}">Mở lại sổ</button>` : ""}` : m < monthOf(S.today) ? btn("closeMonth", `data-close="${m}"`, `Chốt sổ ${vnMonth(m)}`, { cls: "" }) : pill("pend", "Tháng đang chạy")}</div>
+    <div class="grid g5"><div class="card kpi"><h3>Thu dịch vụ</h3><div class="v">${shortH(sm.treatmentIncome)}</div></div><div class="card kpi"><h3>Thu gói 15tr</h3><div class="v">${shortH(sm.packageIncome)}</div></div><div class="card kpi"><h3>Tổng chi đã chi</h3><div class="v">${shortH(sm.expense)}</div></div><div class="card kpi ${sm.profit < 0 ? "" : "key"}"><h3>Lãi / lỗ</h3><div class="v" style="color:${sm.profit < 0 ? "var(--neg)" : "var(--pos)"}">${shortH(sm.profit)}</div></div></div>
+    <div class="grid g2" style="margin-top:14px"><div class="card"><h3>Kết quả kinh doanh ${vnMonth(m)}</h3><div class="tbl"><table><tbody><tr><td>Thu dịch vụ (ròng sau hoàn)</td><td class="r">${vndH(sm.treatmentIncome)}</td></tr><tr><td>Thu gói 15 triệu (ròng)</td><td class="r">${vndH(sm.packageIncome)}</td></tr><tr><td><b>Tổng thu</b></td><td class="r"><b>${vndH(sm.income)}</b></td></tr>${Object.entries(sm.expenseByCat).map(([k, x]) => `<tr><td>Chi: ${CATS[k] || k}</td><td class="r" style="color:var(--neg)">−${vndH(x)}</td></tr>`).join("")}<tr><td><b>Lãi / lỗ</b></td><td class="r"><b>${vndH(sm.profit)}</b></td></tr></tbody></table></div></div>
+    <div class="card"><h3>Lập giấy đề nghị thanh toán</h3>${S.can("expenseCreate") ? `<form id="reqForm" class="stack"><div class="row"><div class="fld"><label for="rqCat">Hạng mục</label><select id="rqCat">${["VAT_TU", "MAT_BANG", "MARKETING", "KHAC"].map(k => `<option value="${k}">${CATS[k]}</option>`).join("")}</select></div><div class="fld"><label for="rqAmt">Số tiền</label><input id="rqAmt" inputmode="numeric"></div></div><div class="fld"><label for="rqPayee">Người / đơn vị nhận</label><input id="rqPayee"></div><div class="fld"><label for="rqNote">Nội dung</label><input id="rqNote"></div><div class="row"><button class="btn pri" type="submit">Lập đề nghị</button></div></form>` : `<p class="hint">Chế độ chỉ xem.</p>`}</div></div>
+    <div class="card" style="margin-top:14px"><h3>Giấy đề nghị thanh toán ${S.can("expenseApprove") ? `<input id="rjReason" placeholder="Lý do nếu từ chối" style="border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--card);font-size:12px;text-transform:none;letter-spacing:0;font-weight:400">` : ""}</h3><div class="tabs2">${[["PENDING", "Chờ duyệt"], ["APPROVED", "Đã duyệt, chờ chi"], ["PAID", "Đã chi"], ["REJECTED", "Từ chối"], ["ALL", "Tất cả"]].map(([k, l]) => `<button data-reqtab="${k}" class="${ui.reqTab === k ? "on" : ""}">${l} (${k === "ALL" ? S.s.requests.length : S.s.requests.filter(r => r.status === k).length})</button>`).join("")}</div>
+      <div class="list">${reqs.map(r => `<div class="li" style="flex-wrap:wrap"><span style="flex:1;min-width:200px"><b class="mono">${r.code}</b> · ${CATS[r.category] || r.category} · ${esc(r.payee)}<div class="hint">${esc(r.note)} · lập ${esc(sname(r.createdBy))} ${vnDate(r.createdAt)}${r.approvedBy ? " · duyệt " + esc(sname(r.approvedBy)) : ""}${r.paidAt ? " · chi " + vnDate(r.paidAt) : ""}${r.rejectReason ? " · lý do: " + esc(r.rejectReason) : ""}</div></span>
+        <span class="row" style="gap:6px"><b>${vndH(r.amount)}</b><button class="btn sm" data-docreq="${r.id}">Chứng từ</button>${r.status === "PENDING" ? btn("expenseApprove", `data-approvereq="${r.id}"`, "Duyệt", { sm: true, avoid: r.createdBy }) + (S.can("expenseApprove") && S.actor().id !== r.createdBy ? `<button class="btn sm warn" data-rejectreq="${r.id}">Từ chối</button>` : "") : ""}${r.status === "APPROVED" && !(r.source && r.source.type === "BATCH") ? btn("expensePay", `data-payreq="${r.id}"`, "Ghi đã chi", { sm: true }) : ""}${r.status === "APPROVED" && r.source && r.source.type === "BATCH" ? pill("pend", "Chi theo lô hoa hồng") : ""}</span></div>`).join("") || `<div class="hint">Không có chứng từ.</div>`}</div></div>`;
+  }
+
+  // =================== LƯƠNG ===================
+  function viewPayroll() {
+    const runs = S.s.payrollRuns; const pm = prevMonth(monthOf(S.today)); if (!ui.runId || !runs.some(r => r.id === ui.runId)) ui.runId = runs[0] ? runs[0].id : null;
+    const run = runs.find(r => r.id === ui.runId); const st = S.cfg.staff;
+    return `<div class="head"><h2>Lương nhân sự</h2><p>Tự tính từ dữ liệu: lương cứng + ${st.consultBps / 100}% thực thu cho tư vấn + ${st.doctorBps / 100}% thực thu hồ sơ cho bác sĩ + ${vnd(st.techFee)}đ/buổi cho KTV + % doanh số tổng cho ban giám đốc, kế toán, truyền thông. Kế toán lập → Ban giám đốc khác người lập duyệt → chi.</p></div>
+    <div class="split"><div class="card"><h3>Bảng lương</h3><div class="row" style="margin-bottom:10px">${runs.some(r => r.month === pm) ? pill("pos", "Đã có bảng lương " + vnMonth(pm)) : btn("payrollCreate", `data-newrun="${pm}"`, `Lập bảng lương ${vnMonth(pm)}`)}</div>
+      <div class="list">${runs.map(r => `<button class="crow ${r.id === ui.runId ? "on" : ""}" data-run="${r.id}"><span><b>${vnMonth(r.month)}</b> <span class="mono hint">${r.code}</span><span class="hint" style="display:block">Lập ${esc(sname(r.createdBy))}</span></span><span style="text-align:right">${vndH(r.total)}<span style="display:block">${pill(r.status === "PAID" ? "pos" : r.status === "APPROVED" ? "pend" : "mute", ({ DRAFT: "Nháp — chờ duyệt", APPROVED: "Đã duyệt — chờ chi", PAID: "Đã chi" })[r.status])}</span></span></button>`).join("") || `<div class="hint">Chưa có.</div>`}</div></div>
+    <div>${run ? `<div class="card"><h3>Bảng lương ${vnMonth(run.month)} · ${run.code} <span class="row" style="gap:6px">${run.status === "DRAFT" ? btn("payrollApprove", `data-approverun="${run.id}"`, "Duyệt bảng lương", { sm: true, avoid: run.createdBy }) : ""}${run.status === "APPROVED" ? btn("expensePay", `data-payreq="${run.requestId}"`, "Ghi đã chi lương", { sm: true }) : ""}<button class="btn sm" data-docrun="${run.id}">Bản in</button></span></h3>
+      <div class="tbl"><table><thead><tr><th>Nhân sự</th><th class="r">Lương cứng</th><th class="r">Tư vấn</th><th class="r">Bác sĩ</th><th class="r">KTV</th><th class="r">% doanh số</th><th class="r">Điều chỉnh</th><th class="r">Tổng</th></tr></thead><tbody>${run.lines.map(l => `<tr><td>${esc(sname(l.staffId))}<div class="hint">${esc(S.staff(l.staffId).label)}</div></td><td class="r">${vnd(l.base)}</td><td class="r" data-tip="Căn cứ ${vnd(l.consultBase)}đ">${vnd(l.consult)}</td><td class="r" data-tip="Căn cứ ${vnd(l.doctorBase)}đ">${vnd(l.doctor)}</td><td class="r" data-tip="${l.sessions} buổi">${vnd(l.tech)}</td><td class="r">${vnd(l.leader)}</td><td class="r">${run.status === "DRAFT" && S.can("payrollCreate") ? `<input id="adj-${l.staffId}" value="${l.adjust}" inputmode="numeric" style="width:100px;border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:var(--card);text-align:right">` : vnd(l.adjust)}${l.adjustNote ? `<div class="hint">${esc(l.adjustNote)}</div>` : ""}</td><td class="r"><b>${vnd(l.total)}</b></td></tr>`).join("")}<tr><td colspan="7"><b>Tổng cộng</b></td><td class="r"><b>${vndH(run.total)}</b></td></tr></tbody></table></div>
+      ${run.status === "DRAFT" && S.can("payrollCreate") ? `<div class="row" style="margin-top:10px"><div class="fld"><label for="adjNote">Lý do điều chỉnh (bắt buộc khi sửa ô Điều chỉnh)</label><input id="adjNote"></div><button class="btn" data-saveadj="${run.id}">Lưu điều chỉnh</button></div>` : ""}</div>` : `<div class="card hint">Chưa có bảng lương.</div>`}</div></div>`;
+  }
+
+  // =================== GIẤY TỜ ===================
+  function viewDocs() {
+    const s = S.s; const K = [["hop-dong", "Hợp đồng gói 15 triệu"], ["phieu-thu", "Phiếu thu / phiếu chi"], ["phieu-chon", "Phiếu chọn quyền lợi"], ["dong-y", "Phiếu đồng ý điều trị"], ["de-nghi", "Giấy đề nghị thanh toán"], ["sao-ke", "Sao kê đối tác tháng"], ["cong-nhan", "Danh sách HĐ công nhận mốc"], ["bang-luong", "Bảng lương"], ["hoan-tien", "Biên bản hoàn tiền gói"]];
+    const k = ui.docKind; let rows = [];
+    if (k === "hop-dong") rows = s.contracts.slice(-15).reverse().map(c => [c.code + " · " + S.customer(c.customerId).name, `data-dockind="hd" data-id="${c.id}"`]);
+    if (k === "phieu-thu") rows = [...s.payments.slice(-10).map(p => [p.code + " · " + S.customer(p.customerId).name + " · " + vnd(p.amount) + "đ", `data-docpay="${p.id}"`]), ...s.pkgPayments.slice(-6).map(p => [p.code + " · gói " + S.contract(p.contractId).code + " · " + vnd(p.amount) + "đ", `data-docpkgpay="${p.id}"`])].reverse();
+    if (k === "phieu-chon") rows = s.selections.slice(-12).reverse().map(x => [x.code + " · " + S.customer(S.contract(x.contractId).customerId).name, `data-dockind="pc" data-id="${x.id}"`]);
+    if (k === "dong-y") rows = s.treatments.slice(-12).reverse().map(t => [t.code + " · " + S.customer(t.customerId).name, `data-docconsent="${t.id}"`]);
+    if (k === "de-nghi") rows = s.requests.slice(-12).reverse().map(r => [r.code + " · " + r.payee + " · " + vnd(r.amount) + "đ", `data-docreq="${r.id}"`]);
+    if (k === "sao-ke") rows = s.partners.filter(p => S.earnings(p.id).entries.length).slice(0, 15).map(p => [S.partnerName(p.id) + " · " + p.code, `data-dockind="sk" data-id="${p.id}"`]);
+    if (k === "cong-nhan") rows = s.partners.map(p => ({ p, n: S.kpiCount(p.id) })).filter(x => x.n).sort((a, b) => b.n - a.n).slice(0, 10).map(x => [S.partnerName(x.p.id) + " · " + x.n + " hợp đồng", `data-dockind="ds" data-id="${x.p.id}"`]);
+    if (k === "bang-luong") rows = s.payrollRuns.map(r => [r.code + " · " + vnMonth(r.month), `data-docrun="${r.id}"`]);
+    if (k === "hoan-tien") rows = s.contracts.filter(c => c.refundDueAt).map(c => [c.code + " · " + S.customer(c.customerId).name, `data-dockind="bb" data-id="${c.id}"`]);
+    return `<div class="head"><h2>Giấy tờ</h2><p>Mọi mẫu giấy điền sẵn từ dữ liệu thật, đúng số tiền, có số tiền bằng chữ. Mở ở từng hồ sơ hoặc tại đây.</p></div>
+    <div class="split"><div class="card"><h3>Loại giấy tờ</h3><div class="list">${K.map(([kk, l]) => `<button class="crow ${kk === k ? "on" : ""}" data-dockindtab="${kk}"><span>${l}</span></button>`).join("")}</div></div>
+    <div class="card"><h3>${K.find(x => x[0] === k)[1]} — gần đây</h3><div class="list">${rows.map(([l, at]) => `<div class="li"><span>${esc(l)}</span><span class="amt"><button class="btn sm pri" ${at}>Xem bản in</button></span></div>`).join("") || `<div class="hint">Chưa có giấy tờ loại này.</div>`}</div></div></div>`;
+  }
+
+  // =================== CÀI ĐẶT ===================
+  function viewSettings() {
+    const c = S.cfg, n = c.network, can = S.can("settings"), dis = can ? "" : "disabled";
+    return `<div class="head"><h2>Cài đặt & danh mục</h2><p>Mọi thay đổi tỷ lệ tăng số phiên bản và ghi nhật ký trước/sau. Chỉ Ban giám đốc sửa được.</p></div>
+    <div class="grid g2"><div class="card"><h3>Tỷ lệ chương trình · phiên bản ${c.version}</h3><form id="rateForm" class="stack"><div class="row"><div class="fld"><label for="stRef">Hoa hồng giới thiệu gói (đ/hợp đồng)</label><input id="stRef" inputmode="numeric" value="${c.referralFlat}" ${dis}></div><div class="fld"><label for="stAdd">Thù lao ngoài gói (%)</label><input id="stAdd" type="number" min="10" max="15" step="0.5" value="${c.addonBps / 100}" ${dis}></div></div>
+      <div class="row"><div class="fld"><label for="stCon">Tư vấn (% thực thu)</label><input id="stCon" type="number" step="0.5" value="${c.staff.consultBps / 100}" ${dis}></div><div class="fld"><label for="stDoc">Bác sĩ (% thực thu)</label><input id="stDoc" type="number" step="0.5" value="${c.staff.doctorBps / 100}" ${dis}></div><div class="fld"><label for="stTech">KTV (đ/buổi)</label><input id="stTech" inputmode="numeric" value="${c.staff.techFee}" ${dis}></div><div class="fld"><label for="stPkg">Nhân viên bán gói (đ/gói)</label><input id="stPkg" inputmode="numeric" value="${c.staff.pkgSaleBonus}" ${dis}><div class="hint">Chờ chủ chốt (E.8), mặc định 0</div></div></div>
+      ${can ? `<div class="row"><button class="btn pri" type="submit">Lưu tỷ lệ</button></div>` : `<p class="hint">Chế độ chỉ xem.</p>`}</form></div>
+    <div class="card"><h3>Thưởng nhiều tầng (mạng lưới) ${n.enabled ? pill("pos", "Đang bật") : pill("neg", "Đang khoá")}</h3><form id="netForm" class="stack"><p class="hint" style="margin:0">Mô hình 2 cấp: tầng 1 nhận ${vnd(c.referralFlat)}đ/gói. Tầng 2 (người giới thiệu của F1) nhận % giá gói khi F1 đạt điều kiện — theo chính sách infographic. Theo NĐ 40/2018 (sửa bởi NĐ 18/2023), trả thưởng từ doanh số tầng dưới cần giấy chứng nhận đăng ký bán hàng đa cấp; app chỉ cho bật khi có số giấy và xác nhận luật sư.</p>
+      <div class="row"><div class="fld"><label for="nLic">Số giấy chứng nhận</label><input id="nLic" value="${esc(n.licenseNo)}" ${dis}></div><div class="fld"><label for="nDate">Ngày cấp</label><input id="nDate" type="date" value="${n.licenseDate}" ${dis}></div></div>
+      ${n.levels.map((l, i) => `<div class="row"><div class="fld"><label for="nb-${i}">Tầng ${l.level}: % giá gói</label><input id="nb-${i}" type="number" step="0.5" min="0" max="20" value="${l.bps / 100}" ${dis}></div><div class="fld"><label for="nc-${i}">F${l.level - 1} đạt tối thiểu (HĐ)</label><input id="nc-${i}" type="number" min="0" value="${l.minChildContracts}" ${dis}></div><div class="fld"><label for="nm-${i}">Đồng hành tối thiểu (tháng)</label><input id="nm-${i}" type="number" min="0" value="${l.minMonths}" ${dis}></div></div>`).join("")}
+      <label class="chk"><input type="checkbox" id="nLaw" ${n.lawyerConfirmed ? "checked" : ""} ${dis}>Đã có ý kiến luật sư bằng văn bản</label><label class="chk"><input type="checkbox" id="nOn" ${n.enabled ? "checked" : ""} ${dis}>Bật chi thưởng nhiều tầng</label>
+      ${can ? `<div class="row"><button class="btn pri" type="submit">Lưu cài đặt mạng lưới</button></div>` : ""}</form></div></div>
+    <details class="card" style="margin-top:14px"><summary class="sumh">Danh mục dịch vụ da liễu (bảng giá mẫu — thay bằng giá thật)</summary><div class="tbl" style="margin-top:10px"><table><thead><tr><th>Mã</th><th>Dịch vụ</th><th class="r">Giá</th><th>Buổi</th></tr></thead><tbody>${CAT.SERVICES.map(s => `<tr><td class="mono">${s.code}</td><td>${esc(s.name)}<div class="hint">${esc(s.groupLabel)}</div></td><td class="r">${vnd(s.price)}${s.unit}</td><td>${s.sessions}</td></tr>`).join("")}</tbody></table></div></details>
+    <details class="card" style="margin-top:14px"><summary class="sumh">Gói chính A01–A07 (từ phiếu chọn của chương trình)</summary><div class="tbl" style="margin-top:10px"><table><tbody>${CAT.BUNDLES.map(b => `<tr><td class="mono">${b.code}</td><td>${esc(b.name)}${b.review ? ` ${pill("pend", "Chờ xác nhận")}` : ""}</td><td class="r">${vnd(b.value)}đ</td></tr>`).join("")}</tbody></table></div></details>
+    <details class="card" style="margin-top:14px"><summary class="sumh">Nhân sự (${STAFF.filter(x => x.role !== "PARTNER").length})</summary><div class="tbl" style="margin-top:10px"><table><thead><tr><th>Họ tên</th><th>Vai trò</th><th>Nhóm</th><th class="r">Lương cứng</th></tr></thead><tbody>${STAFF.filter(x => x.role !== "PARTNER").map(x => `<tr><td>${esc(x.name)}</td><td>${ROLE_LABEL[x.role]}</td><td>${TEAMS[x.team] || ""}</td><td class="r">${x.base ? vnd(x.base) : "—"}</td></tr>`).join("")}</tbody></table></div></details>`;
+  }
+
+  // =================== PHÂN QUYỀN ===================
+  function viewPerms() {
+    const cols = ["Tiếp nhận & lịch", "Hồ sơ khách", "Thu tiền", "Hoàn tiền", "Chỉ định / ghi buổi", "Thấy hoa hồng", "Đối soát, lập lô", "Duyệt chi / lô / lương", "Chốt sổ, cài đặt", "Cổng đối tác"];
+    const M = { ADMIN: ["Sửa", "Toàn bộ", "Sửa", "—", "—", "Xem", "Xem", "Duyệt (khác người lập)", "Sửa", "Xem mọi người"], MANAGER: ["—", "Xem toàn bộ", "Sửa", "Sửa", "—", "Xem", "Sửa", "—", "—", "Xem mọi người"], RECEPTION: ["Sửa", "Toàn bộ", "Sửa", "—", "—", "Xem", "—", "—", "—", "—"], LEAD: ["Sửa", "Của nhóm", "Sửa", "—", "—", "Xem (nhóm)", "—", "—", "—", "—"], CONSULTANT: ["Sửa", "Của mình", "Sửa", "—", "—", "Xem (của mình)", "—", "—", "—", "—"], DOCTOR: ["Cập nhật lịch", "Toàn bộ (y khoa)", "—", "—", "Sửa", "Không thấy", "—", "—", "—", "—"], TECH: ["Cập nhật lịch", "Toàn bộ (điều trị)", "—", "—", "Ghi buổi", "Không thấy", "—", "—", "—", "—"], MEDIA: ["—", "—", "—", "—", "—", "—", "—", "—", "—", "—"], SHAREHOLDER: ["Xem", "Xem toàn bộ", "—", "—", "—", "Xem", "Xem", "—", "Xem", "Xem mọi người"], PARTNER: ["—", "—", "—", "—", "—", "Của mình", "—", "—", "—", "Chỉ của mình"] };
+    const cls = v => v === "—" || v === "Không thấy" ? "mute" : /Sửa|Duyệt|Ghi|Cập nhật/.test(v) ? "pos" : "pend";
+    return `<div class="head"><h2>Phân quyền</h2><p>Kiểm ở bộ máy nghiệp vụ, không chỉ ẩn nút: người không đủ quyền bấm vẫn bị từ chối và ghi nhật ký. Việc tiền nhạy cảm cần hai người.</p></div>
+    <div class="tbl"><table><thead><tr><th>Vai trò</th>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>${Object.entries(M).map(([r, v]) => `<tr><td><b>${ROLE_LABEL[r]}</b><div class="hint">${STAFF.filter(x => x.role === r).map(x => esc(x.name)).join(", ")}</div></td>${v.map(x => `<td>${pill(cls(x), esc(x))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <div class="grid g2" style="margin-top:14px"><div class="card"><h3>Nguyên tắc</h3><div class="stack hint"><div>Sếp (Ban giám đốc) xem hết và duyệt; người lập chứng từ không tự duyệt.</div><div>Cổ đông bệnh viện xem toàn bộ số liệu, không có nút sửa nào.</div><div>Trưởng nhóm xem nhóm mình; tư vấn viên chỉ xem khách và số liệu của mình.</div><div>Bác sĩ, KTV không thấy con số hoa hồng.</div><div>Khách/đối tác chỉ thấy ví, thu nhập, khách mình giới thiệu (tên viết tắt, 3 số cuối SĐT).</div></div></div>
+    <div class="card"><h3>Thử ngay</h3><div class="stack hint"><div>Đổi "Bạn đang là" thành <b>Cổ đông bệnh viện</b> → mọi nút sửa bị khoá.</div><div>Chọn <b>Mai Anh</b> → chỉ thấy khách và doanh thu của Mai Anh.</div><div>Chọn <b>Thu Hà</b> (trưởng nhóm) → thấy cả Nhóm Tư vấn 1.</div><div>Chọn <b>Nguyễn Thị Hạnh</b> (khách) → chỉ còn cổng của chị Hạnh.</div></div></div></div>`;
+  }
+  function viewLog() { return `<div class="head"><h2>Nhật ký</h2><p>Mọi thao tác: ai làm, ngày nào, nội dung gì — kể cả các lần bị từ chối. Không có nút xoá.</p></div><div class="row" style="margin-bottom:12px"><button class="btn warn" data-reset="1">Khôi phục dữ liệu mẫu</button></div><div class="tbl"><table><thead><tr><th>Ngày</th><th>Người</th><th>Hành động</th><th>Nội dung</th></tr></thead><tbody>${S.s.audit.slice(0, 200).map(a => `<tr><td class="num">${vnDate(a.at)}</td><td>${esc(a.actor)}</td><td><b>${esc(a.action)}</b></td><td>${esc(a.detail)}</td></tr>`).join("")}</tbody></table></div>`; }
+
+  // =================== KIỂM THỬ TRONG TRÌNH DUYỆT ===================
+  function fresh(today = "2026-11-02") { return new Store(HP.emptyState(today)); }
+  function as(st, id, fn) { const p = st.s.actorId; st.s.actorId = id; try { return fn(); } finally { st.s.actorId = p; } }
+  const sellT = (st, n, l5, ref, pay = PKG_PRICE) => as(st, "hoa", () => st.sell({ buyerName: n, last5: l5, referralCode: ref || "", pin: "246810", firstPayment: pay }));
+  const thr = fn => { try { fn(); return ""; } catch (e) { return e.message; } };
+  const TESTS = [
+    ["T1", "Hết hạn, số dư 12tr → hoàn 6.000.000đ, hạn 15 ngày làm việc", () => { const st = fresh(), c = sellT(st, "Khách A", "11111"); st.s.wallet.push({ id: "x", contractId: c.id, kind: "REDEEM", amount: -18000000, at: st.today }); const r = as(st, "bich", () => st.endWithRefund(c.id, "EXPIRED")); return [r === 6000000 && HP.workingDaysBetween(st.today, c.refundDueAt) === 15, `hoàn ${vnd(r)}đ · hạn ${vnDate(c.refundDueAt)}`]; }],
+    ["T2–T4", "Quyết toán suất: 300tr · 50tr · 411tr", () => { const a = F.settle2B({ paid: 500e6, usedValue: 600e6 }), b = F.settle2B({ paid: 50e6, usedValue: 0 }), c = F.settle5({ paid: 570e6, owed: 12e6, received: 540e6 }); return [a === 300e6 && b === 50e6 && c === 411e6, `${vnd(a)} · ${vnd(b)} · ${vnd(c)}`]; }],
+    ["T5–T6", "Lợi nhuận: lỗ → 0; lãi 200tr → 4tr; pro-rata 15/30 → 3tr", () => { const a = F.profitShare({ bps: 200, profit: -5e7, activeDays: 90, periodDays: 90 }), b = F.profitShare({ bps: 200, profit: 2e8, activeDays: 91, periodDays: 91 }), c = F.profitShare({ bps: 200, profit: 3e8, activeDays: 15, periodDays: 30 }); return [a === 0 && b === 4e6 && c === 3e6, `${vnd(a)} · ${vnd(b)} · ${vnd(c)}`]; }],
+    ["T7–T9", "Duy trì: chỉ nhắc · không tính · mở vụ việc; giải trình ngày LV 11 → được quyết định", () => { const a = evaluateMaintenance([{ contracts: 0, activities: 1 }], 1)[0].status, b = evaluateMaintenance([{ contracts: 1, activities: 0 }, { contracts: 1, activities: 0, planGiven: false }], 1)[1].status, c = evaluateMaintenance([{ contracts: 1, activities: 0 }, { contracts: 1, activities: 0 }], 1)[1].status, d = HP.terminationDecisionAllowed("2026-12-01", HP.addWorkingDays("2026-12-01", 11)).allowed; return [a === "NHAC" && b === "KHONG_TINH" && c === "MO_VU_VIEC" && d, `${a} · ${b} · ${c} · ${d}`]; }],
+    ["T11", "Một hợp đồng chỉ một khoản 3tr", () => { const st = fresh(), a = sellT(st, "Giới thiệu", "22222"), c = sellT(st, "Khách", "33333", st.partner(a.ownerPartnerId).code); const e = thr(() => st.activate(c, st.today)); return [!!e, e]; }],
+    ["T12", "Chờ → khả dụng → đã trả → huỷ: −3tr kỳ sau", () => { const st = fresh(), a = sellT(st, "Giới thiệu", "44444"), c = sellT(st, "Khách", "55555", st.partner(a.ownerPartnerId).code, 1e7); const none = !st.s.commissions.some(e => e.contractId === c.id); as(st, "hoa", () => st.collect(c.id, 5e6)); const e = st.s.commissions.find(x => x.contractId === c.id); st.s.today = "2026-12-02"; as(st, "bich", () => st.reconcile("2026-11")); const b = as(st, "bich", () => st.createBatch()); as(st, "lam", () => st.approveBatch(b.id)); as(st, "bich", () => st.payBatch(b.id)); as(st, "bich", () => st.cancel(c.id)); const off = st.s.commissions.find(x => x.reversalOf === e.id); return [none && e.state === "PAID" && off && off.amount === -3e6 && off.period === "2027-01", off ? `bù trừ ${vnd(off.amount)}đ kỳ ${off.period}` : "thiếu"]; }],
+    ["T13", "Ngoài gói: khách trả 18tr × 12% = 2.160.000đ", () => { const st = fresh(), a = sellT(st, "Giới thiệu", "66666"); const cus = as(st, "hoa", () => st.addCustomer({ name: "Khách T13", last5: "77777", consent: true, referralCode: st.partner(a.ownerPartnerId).code })); const t = as(st, "maianh", () => st.openTreatment(cus.id)); as(st, "maianh", () => st.addLine(t.id, { code: "D03-04" })); t.lines[0].finalPrice = 18e6; as(st, "hoa", () => st.pay(t.id, 18e6)); const e = st.s.commissions.find(x => x.type === "ADDON_PCT"); return [e.amount === 2160000, vnd(e.amount) + "đ"]; }],
+    ["T15–T16", "A07 → ví còn 15tr; vượt ví không đồng ý → chặn", () => { const st = fresh(), c = sellT(st, "Khách", "88888"); const s1 = as(st, "hoa", () => st.saveSelection(c.id, { bundle: "A07" })); as(st, "bsminh", () => st.prescribe(s1.id, [{ ok: true, qty: 1 }])); as(st, "hoa", () => st.redeem(s1.id, 0, { pin: "246810" })); const b1 = st.balance(c.id); const s2 = as(st, "hoa", () => st.saveSelection(c.id, { extras: [{ code: "D04-01", qty: 2 }] })); as(st, "bsminh", () => st.prescribe(s2.id, [{ ok: true, qty: 2 }])); const e = thr(() => as(st, "hoa", () => st.redeem(s2.id, 0, { pin: "246810" }))); return [b1 === 15e6 && !!e && st.balance(c.id) === 15e6, `còn ${vnd(b1)}đ · "${e}"`]; }],
+    ["T17", "Thưởng tầng 2 khoá khi chưa có giấy chứng nhận", () => { const st = fresh(); const r = st.requestSecondLevel(); return [r.ok === false, r.reason]; }],
+    ["2 cấp", "Bật có giấy chứng nhận → tầng 2 nhận 5% × 15tr = 750.000đ", () => { const st = fresh(), f2 = sellT(st, "Long", "10001"), f1 = sellT(st, "Trang", "10002", st.partner(f2.ownerPartnerId).code); as(st, "lam", () => st.setNetwork({ enabled: true, licenseNo: "GCN-TEST", lawyerConfirmed: true, levels: [{ bps: 500, minChildContracts: 1, minMonths: 0 }, { bps: 0, minChildContracts: 1, minMonths: 0 }] })); sellT(st, "Khách", "10003", st.partner(f1.ownerPartnerId).code); const n = st.s.commissions.filter(e => e.type === "NETWORK"); return [n.length === 1 && n[0].amount === 750000, n.map(e => vnd(e.amount) + "đ").join(", ")]; }],
+    ["Truy nguồn", "Khách ← Trang (tầng 1) ← Long (tầng 2)", () => { const st = fresh(), f2 = sellT(st, "Long", "20001"), f1 = sellT(st, "Trang", "20002", st.partner(f2.ownerPartnerId).code); const cus = as(st, "hoa", () => st.addCustomer({ name: "Khách X", last5: "20003", consent: true, referralCode: st.partner(f1.ownerPartnerId).code })); const ln = st.lineage(cus.id).map(x => x.name).join(" ← "); return [ln === "Trang ← Long", ln]; }],
+    ["Hai người", "Tự duyệt chi / lương bị chặn", () => { const st = fresh("2026-12-02"); const r = as(st, "lam", () => st.createRequest({ category: "VAT_TU", payee: "NCC", amount: 1e6 })); const a = thr(() => as(st, "lam", () => st.approveRequest(r.id))); const run = as(st, "lam", () => st.createPayrollRun("2026-11")); const b = thr(() => as(st, "lam", () => st.approvePayroll(run.id))); return [!!a && !!b, `${a} · ${b}`]; }],
+    ["Chốt sổ", "Tháng đã chốt không ghi thêm tiền", () => { const st = fresh("2026-12-02"); as(st, "lam", () => st.closeMonth("2026-11")); st.s.today = "2026-11-30"; const e = thr(() => sellT(st, "Khách", "40001")); return [/chốt sổ/.test(e), e]; }],
+    ["Cổ đông", "Cổ đông không có quyền thao tác nào", () => { const st = fresh(); const any = Object.keys(CAN).filter(k => k !== "seeMoney").some(k => as(st, "codong", () => st.can(k))); return [!any, any ? "có quyền" : "không có quyền nào"]; }]
+  ];
+  function viewTests() {
+    const r = ui.testRun, pass = r ? r.filter(x => x.ok).length : 0;
+    return `<div class="head"><h2>Kiểm thử</h2><p>Bộ test số vàng của đặc tả (mục 13) và các luật mới (2 cấp, truy nguồn, hai người, chốt sổ, cổ đông), chạy trên chính bộ máy của app, mỗi test một kho dữ liệu riêng.</p></div>
+    <div class="row" style="margin-bottom:12px"><button class="btn pri" data-runtests="1">Chạy ${TESTS.length} test</button>${r ? pill(pass === r.length ? "pos" : "neg", `${pass}/${r.length} đạt`) : ""}</div>
+    <div class="tbl"><table><thead><tr><th>Mã</th><th>Kịch bản</th><th>Kết quả</th><th></th></tr></thead><tbody>${TESTS.map(([id, d], i) => { const x = r && r[i]; return `<tr><td class="mono">${id}</td><td>${esc(d)}</td><td>${x ? esc(x.detail) : `<span class="hint">Chưa chạy</span>`}</td><td>${x ? pill(x.ok ? "pos" : "neg", x.ok ? "Đạt" : "Sai") : ""}</td></tr>`; }).join("")}</tbody></table></div>`;
+  }
+
+  // =================== KỊCH BẢN THỬ CÓ HƯỚNG DẪN ===================
+  const G = () => S.s.guide || {};
+  const gCom = g => { const k = S.s.contracts.find(c => c.customerId === g.cus); return k && S.s.commissions.find(e => e.contractId === k.id && e.type === "REFERRAL_FLAT" && e.amount > 0); };
+  const GUIDE = [
+    { t: "Lễ tân tiếp nhận khách mới do chị Hạnh (HP-2K7Q) giới thiệu", who: "hoa", r: "tiep-nhan", sel: "#intakeBox", done: g => !!g.cus },
+    { t: "Tư vấn viên mở hồ sơ điều trị và thêm dịch vụ", who: "maianh", r: "khach-hang", sel: "#sec-open", done: g => S.s.treatments.some(t => t.customerId === g.cus && t.lines.length) },
+    { t: "Lễ tân thu tiền, in phiếu thu", who: "hoa", r: "khach-hang", sel: "[data-pay]", done: g => S.s.payments.some(p => p.customerId === g.cus) },
+    { t: "Kỹ thuật viên ghi buổi điều trị", who: "nga", r: "khach-hang", sel: "[data-session]", done: g => S.s.sessions.some(x => S.treatment(x.treatmentId).customerId === g.cus) },
+    { t: "Ban giám đốc truy nguồn: khách ← Hạnh ← Trang", who: "lam", r: "khach-hang", sel: "#sec-journey", tab: "hanh-trinh", done: g => !!g.seenJourney },
+    { t: "Bán gói 15 triệu cho chính khách này", who: "hoa", r: "goi", sel: "#sellBox", done: g => S.s.contracts.some(c => c.customerId === g.cus && c.fullyPaidAt) },
+    { t: "Lập phiếu chọn quyền lợi", who: "hoa", r: "goi", sel: "#sec-phieu", done: g => S.s.selections.some(x => S.contract(x.contractId).customerId === g.cus) },
+    { t: "Bác sĩ khám và chỉ định", who: "bsminh", r: "goi", sel: "#sec-chidinh", done: g => S.s.selections.some(x => S.contract(x.contractId).customerId === g.cus && x.lines.some(l => l.state !== "CHO_BAC_SI")) },
+    { t: "Khách nhập PIN, ghi nhận sử dụng ví", who: "hoa", r: "goi", sel: "#sec-chidinh", done: g => S.s.wallet.some(w => w.kind === "REDEEM" && S.contract(w.contractId).customerId === g.cus) },
+    { t: "Xem cổng chị Hạnh: có thêm hoa hồng đang chờ", who: "kh-hanh", r: "cong-doi-tac", sel: ".phone", done: g => !!g.seenPortal },
+    { t: "Kế toán sang tháng sau, đối soát và lập lô", who: "bich", r: "hoa-hong", sel: "[data-advance],[data-reconcile]", done: g => { const e = gCom(g); return !!(e && e.batchId); } },
+    { t: "Ban giám đốc duyệt lô (khác người lập)", who: "lam", r: "hoa-hong", sel: "[data-approvebatch]", done: g => { const e = gCom(g), b = e && S.s.batches.find(x => x.id === e.batchId); return !!(b && ["DA_DUYET", "DA_TRA"].includes(b.status)); } },
+    { t: "Kế toán ghi đã chuyển tiền", who: "bich", r: "hoa-hong", sel: "[data-paybatch]", done: g => { const e = gCom(g); return !!(e && e.state === "PAID"); } }
+  ];
+  const gStep = () => GUIDE.findIndex(x => !x.done(G()));
+  function guideCard() {
+    const g = S.s.guide; if (!g || !g.on) return `<div class="guide off"><span>Lần đầu dùng? Đi một vòng có hướng dẫn: tiếp nhận → điều trị → thu tiền → truy nguồn → gói → hoa hồng → chi trả.</span><button class="btn sm pri" data-guide="start">Bắt đầu kịch bản thử</button></div>`;
+    const i = gStep(); if (i < 0) return `<div class="guide"><div><span class="k">Kịch bản thử · hoàn thành</span><b>Bạn đã đi hết một vòng: khách đến → điều trị → thu tiền → truy nguồn → gói → hoa hồng → chi trả.</b></div><div class="row"><button class="btn sm" data-guide="restart">Làm lại</button><button class="btn sm" data-guide="off">Đóng</button></div></div>`;
+    const st = GUIDE[i], who = S.staff(st.who), here = S.s.actorId === st.who && route() === st.r;
+    return `<div class="guide"><div><span class="k">Kịch bản thử · bước ${i + 1}/${GUIDE.length}</span><b>${st.t}</b><span class="hint">${here ? "Bạn đang ở đúng chỗ — làm theo ô viền vàng bên dưới." : `Người làm: ${esc(who.name)} (${esc(ROLE_LABEL[who.role])})`}</span></div><div class="row">${here ? "" : `<button class="btn sm pri" data-guide="go">Đưa tôi tới bước này</button>`}<details class="gsteps"><summary class="btn sm">Các bước</summary><ol>${GUIDE.map((x, k) => `<li class="${x.done(G()) ? "ok" : k === i ? "cur" : ""}">${x.done(G()) ? "✓ " : ""}${x.t}</li>`).join("")}</ol></details><button class="btn sm" data-guide="off">Tắt</button></div></div>`;
+  }
+  function guideGo() {
+    const i = gStep(); if (i < 0) return; const st = GUIDE[i], g = S.s.guide;
+    S.s.actorId = st.who; save();
+    if (g.cus) { ui.cusId = g.cus; ui.cq = ""; }
+    if (st.tab) ui.cusTab = st.tab; else if (st.r === "khach-hang") ui.cusTab = "dieu-tri";
+    if (i === 0) { ui.tq = ""; ui.intakePrefill = { name: "Khách thử " + (S.s.customers.length + 1), l5: String(10000 + Math.floor(Math.random() * 89999)), ref: "HP-2K7Q", consent: true }; }
+    if (i === 5) { ui.sellOpen = true; ui.sellPrefill = { customerId: g.cus, ref: "HP-2K7Q", pin: "246810" }; }
+    if (i >= 5 && i <= 8) { const k = S.s.contracts.find(c => c.customerId === g.cus); if (k) { ui.contractId = k.id; ui.q = ""; } }
+    if (st.r === "cong-doi-tac") ui.ptab = "earn";
+    go(st.r); setTimeout(() => { const el = document.querySelector(".hl"); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 90);
+  }
+
+  // =================== RENDER ===================
+  function render() {
+    renderTop(); const r = route();
+    if (location.hash && location.hash.slice(1) !== r) history.replaceState(null, "", "#" + r);
+    const g = S.s.guide;
+    if (g && g.on && r === "cong-doi-tac" && S.s.actorId === "kh-hanh" && gStep() === 9) { g.seenPortal = true; save(); }
+    if (g && g.on && r === "khach-hang" && S.s.actorId === "lam" && ui.cusTab === "hanh-trinh" && ui.cusId === g.cus && gStep() === 4) { g.seenJourney = true; save(); }
+    const V = { "viec-hom-nay": viewToday, "lich-hen": viewAppts, "tiep-nhan": viewIntake, "khach-hang": viewCustomers, "cham-soc": viewCare, "goi": viewPackage, "mang-luoi": viewNetwork, "hoa-hong": viewCommission, "cong-doi-tac": viewPortal, "tong-quan": viewDashboard, "hieu-suat": viewPerf, "thu-chi": viewFinance, "luong": viewPayroll, "giay-to": viewDocs, "cai-dat": viewSettings, "phan-quyen": viewPerms, "nhat-ky": viewLog, "kiem-thu": viewTests };
+    $("#app").innerHTML = `<div class="banner"><b>Bản chạy thử</b> · dữ liệu mẫu 6 tháng, chỉ lưu trên trình duyệt này. Đổi "Bạn đang là" để xem từng vai trò. <button class="btn sm" data-reset="1">Khôi phục dữ liệu mẫu</button></div>` + (role() === "PARTNER" && !(S.s.guide && S.s.guide.on) ? "" : guideCard()) + V[r]();
+    if (g && g.on) { const i = gStep(); if (i >= 0 && S.s.actorId === GUIDE[i].who && r === GUIDE[i].r) { const sels = GUIDE[i].sel.split(","); let el = null; for (const q of sels) { el = document.querySelector(q); if (el) break; } if (el) { el.classList.add("hl"); if (el.tagName === "DETAILS") el.open = true; } } }
+    if (r === "cong-doi-tac" && ui.ptab === "home") { const el = $("#qr"), p = S.partner(ui.portalPartner); if (el && p) { if (window.QRCode) { try { new QRCode(el, { text: "HONGPHUC-DALIEU:" + p.code, width: 88, height: 88, colorDark: "#052e25", colorLight: "#ffffff" }); } catch (e) { } } else el.innerHTML = `<div class="mono" style="color:#052e25;width:88px;text-align:center">${p.code}</div>`; } }
+  }
+
+  // =================== SỰ KIỆN ===================
+  function custFromInput(v) { const code = (v.split("·").pop() || "").trim(); return S.s.customers.find(c => c.code === code) || S.findCustomers(v.split("·")[0].trim())[0]; }
+  document.addEventListener("click", ev => {
+    const t = ev.target.closest("button,a[data-goto]"); if (!t || !t.dataset) return; const d = t.dataset;
+    if (d.closedoc) { $("#modal").hidden = true; return; }
+    if (d.copydoc) { const txt = $("#paper").innerText; try { navigator.clipboard.writeText(txt).then(() => toast("Đã sao chép nội dung giấy tờ."), () => toast("Không sao chép được — bôi đen văn bản để sao chép.", true)); } catch (e) { toast("Không sao chép được — bôi đen văn bản để sao chép.", true); } return; }
+    if (d.hop) { S.s.actorId = d.hop; save(); render(); toast(`Đã chuyển sang ${S.actor().name} (${ROLE_LABEL[role()]}). Bấm lại nút để làm.`); return; }
+    if (d.guide) { if (d.guide === "start" || d.guide === "restart") { S.s.guide = { on: true }; save(); guideGo(); } else if (d.guide === "go") guideGo(); else { S.s.guide = { ...(S.s.guide || {}), on: false }; save(); render(); } return; }
+    if (d.goto) { ev.preventDefault(); const el = document.getElementById(d.goto); if (el) { if (el.tagName === "DETAILS") el.open = true; el.scrollIntoView({ behavior: "smooth", block: "start" }); } return; }
+    if (d.reset) { S.s = SEED.seed(); save(); ui = { ...ui, cusId: null, contractId: null, q: "", cq: "", tq: "", pq: "", trace: "", runId: null, partnerId: null, portalPartner: null, testRun: null, sellPrefill: null, intakePrefill: null }; render(); toast("Đã khôi phục dữ liệu mẫu."); return; }
+    if (d.showall) { ui.showAll = true; render(); return; }
+    // điều hướng tới bản ghi
+    if (d.opencus || d.cus) { ui.cusId = d.opencus || d.cus; ui.cusTab = "dieu-tri"; ui.cq = ""; go("khach-hang"); return; }
+    if (d.opencusJourney) { ui.cusId = d.opencusJourney; ui.cusTab = "hanh-trinh"; ui.cq = ""; go("khach-hang"); return; }
+    if (d.custab) { ui.cusTab = d.custab; render(); return; }
+    if (d.opencontract || d.contract) { ui.contractId = d.opencontract || d.contract; ui.q = ""; go("goi"); if (d.contract && window.innerWidth < 900) setTimeout(() => $("#panel") && $("#panel").scrollIntoView({ behavior: "smooth" }), 60); return; }
+    if (d.netpartner) { ui.partnerId = d.netpartner; ui.pq = ""; if (allowed("mang-luoi")) go("mang-luoi"); return; }
+    if (d.portal) { ui.portalPartner = d.portal; ui.ptab = "home"; go("cong-doi-tac"); return; }
+    if (d.ptab) { ui.ptab = d.ptab; render(); return; }
+    if (d.run) { ui.runId = d.run; render(); return; }
+    if (d.reqtab) { ui.reqTab = d.reqtab; render(); return; }
+    if (d.dockindtab) { ui.docKind = d.dockindtab; render(); return; }
+    if (d.sellfor) { ui.sellPrefill = { customerId: d.sellfor, ref: S.customer(d.sellfor).referrerPartnerId ? S.partner(S.customer(d.sellfor).referrerPartnerId).code : "" }; ui.sellOpen = true; go("goi"); return; }
+    if (d.clearsell) { ui.sellPrefill = null; render(); return; }
+    if (d.sampleSell) { ui.sellPrefill = { name: "Khách thử " + (S.s.customers.length + 1), l5: String(10000 + Math.floor(Math.random() * 89999)), ref: "HP-2K7Q", pin: "246810" }; ui.sellOpen = true; render(); return; }
+    if (d.sampleIntake) { ui.intakePrefill = { name: "Khách thử " + (S.s.customers.length + 1), l5: String(10000 + Math.floor(Math.random() * 89999)), ref: "HP-2K7Q", consent: true }; render(); return; }
+    if (d.refundform) { ui.refundFor = ui.refundFor === d.refundform ? null : d.refundform; render(); return; }
+    if (d.advance) { S.s.today = nextMonth(monthOf(S.today)) + "-02"; save(); render(); toast("Ngày hệ thống: " + vnDate(S.today) + ". Giờ đối soát được kỳ trước."); return; }
+    if (d.runtests) { ui.testRun = TESTS.map(([, , fn]) => { try { const [ok, detail] = fn(); return { ok, detail }; } catch (e) { return { ok: false, detail: "Lỗi: " + e.message }; } }); render(); return; }
+    // giấy tờ
+    if (d.dockind) { const id = d.id; const M = { hd: () => openDoc(DOCS.hopDongGoi(S, S.contract(id)), "Hợp đồng gói 15 triệu"), pc: () => openDoc(DOCS.phieuChon(S, S.s.selections.find(x => x.id === id)), "Phiếu chọn quyền lợi"), sk: () => openDoc(DOCS.saoKe(S, id, prevMonth(monthOf(S.today))), "Sao kê đối tác"), ds: () => openDoc(DOCS.danhSachCongNhan(S, id), "Danh sách hợp đồng công nhận"), bb: () => openDoc(DOCS.bienBanHoan(S, S.contract(id)), "Biên bản hoàn tiền") }; M[d.dockind](); return; }
+    if (d.docpay) { openDoc(DOCS.phieuThu(S, S.s.payments.find(p => p.id === d.docpay), false), "Phiếu thu"); return; }
+    if (d.docpkgpay) { openDoc(DOCS.phieuThu(S, S.s.pkgPayments.find(p => p.id === d.docpkgpay), true), "Phiếu thu gói"); return; }
+    if (d.docconsent) { openDoc(DOCS.phieuDongY(S, S.treatment(d.docconsent)), "Phiếu đồng ý điều trị"); return; }
+    if (d.docreq) { openDoc(DOCS.deNghiThanhToan(S, S.s.requests.find(r => r.id === d.docreq)), "Giấy đề nghị thanh toán"); return; }
+    if (d.docrun) { openDoc(DOCS.bangLuong(S, S.s.payrollRuns.find(r => r.id === d.docrun)), "Bảng lương"); return; }
+    // thao tác nghiệp vụ
+    if (d.appt) return act(() => S.setApptStatus(d.appt, d.st), "Đã cập nhật lịch hẹn.");
+    if (d.cusappt) return act(() => S.addAppointment({ customerId: d.cusappt, date: val("#caDate"), time: val("#caTime"), type: val("#caType") }), "Đã đặt lịch.");
+    if (d.opentr) return act(() => S.openTreatment(d.opentr, { doctorId: val("#opDoc"), consultantId: val("#opCons") || null }), t => `Đã mở hồ sơ ${t.code}. Thêm dịch vụ bên dưới.`);
+    if (d.addline) return act(() => S.addLine(d.addline, { code: val("#svc-" + d.addline), qty: num("#qty-" + d.addline), discount: num("#disc-" + d.addline) }), "Đã thêm dịch vụ.");
+    if (d.rmline) return act(() => S.removeLine(d.rmline, d.line), "Đã bỏ dịch vụ.");
+    if (d.session) return act(() => S.addSession(d.session, d.line, { techId: val("#tech-" + d.line) || null }), s => `Đã ghi buổi ${s.no}.`);
+    if (d.pay) return act(() => S.pay(d.pay, num("#pay-" + d.pay), { method: val("#pm-" + d.pay) }), p => `Đã thu ${vnd(p.amount)}đ — ${p.code}. Bấm "Phiếu thu" trong mục Khoản thu để in.`);
+    if (d.refund) return act(() => { const r = S.refundPayment(d.refund, num("#rfA"), val("#rfR")); ui.refundFor = null; return r; }, "Đã ghi phiếu hoàn tiền.");
+    if (d.care !== undefined) { const it = S.careList()[Number(d.care)]; return act(() => S.logCare(it.customerId, it.kind, val("#care-" + d.care)), "Đã ghi nhận cuộc gọi."); }
+    if (d.collect) return act(() => S.collect(d.collect, num("#colAmt")), "Đã thu tiền gói.");
+    if (d.cancel) return act(() => S.cancel(d.cancel), "Đã huỷ hợp đồng và ghi bút toán hoàn tiền.");
+    if (d.end) return act(() => S.endWithRefund(d.end, d.reason), r => `Đã kết thúc. Hoàn ${vnd(r)}đ (F1) trong 15 ngày làm việc.`);
+    if (d.rx) { const sel = S.s.selections.find(x => x.id === d.rx), dec = sel.lines.map(() => null); dec[+d.i] = { ok: d.ok === "1", qty: num(`#rx-${d.rx}-${d.i}`) || 1 }; return act(() => S.prescribe(d.rx, dec), d.ok === "1" ? "Đã chỉ định." : "Đã ghi không chỉ định."); }
+    if (d.redeem) { const k = `${d.redeem}-${d.i}`; return act(() => S.redeem(d.redeem, +d.i, { pin: val("#pin-" + k), overageConsent: !!($("#oc-" + k) || {}).checked, overagePaid: num("#op-" + k) }), "Đã ghi nhận sử dụng, trừ ví và tạo dòng trong hồ sơ điều trị."); }
+    if (d.reconcile) return act(() => S.reconcile(d.reconcile), r => `Đối soát xong: ${r.n} khoản, ${vnd(r.sum)}đ chuyển "Khả dụng".`);
+    if (d.batch) return act(() => S.createBatch(), b => `Đã lập ${b.code}: ${vnd(b.total)}đ — chờ Ban giám đốc duyệt.`);
+    if (d.approvebatch) return act(() => S.approveBatch(d.approvebatch), "Đã duyệt lô, sinh giấy đề nghị thanh toán.");
+    if (d.paybatch) return act(() => S.payBatch(d.paybatch), "Đã ghi chuyển khoản hoa hồng.");
+    if (d.rejectbatch) return act(() => S.rejectBatch(d.rejectbatch), "Đã trả lại lô.");
+    if (d.approvereq) return act(() => S.approveRequest(d.approvereq), "Đã duyệt chi.");
+    if (d.rejectreq) return act(() => S.rejectRequest(d.rejectreq, val("#rjReason")), "Đã từ chối.");
+    if (d.payreq) return act(() => S.payRequest(d.payreq), "Đã ghi đã chi.");
+    if (d.close) return act(() => S.closeMonth(d.close), "Đã chốt sổ.");
+    if (d.reopen) return act(() => S.reopenMonth(d.reopen, val("#reopenR")), "Đã mở lại sổ.");
+    if (d.newrun) return act(() => { const r = S.createPayrollRun(d.newrun); ui.runId = r.id; return r; }, r => `Đã lập ${r.code} — chờ Ban giám đốc duyệt.`);
+    if (d.approverun) return act(() => S.approvePayroll(d.approverun), "Đã duyệt bảng lương — sinh giấy đề nghị chi lương.");
+    if (d.saveadj) { const run = S.s.payrollRuns.find(r => r.id === d.saveadj); return act(() => { let n = 0; run.lines.forEach(l => { const v = num("#adj-" + l.staffId); if (v !== l.adjust) { S.adjustPayroll(run.id, l.staffId, v, val("#adjNote")); n++; } }); if (!n) throw new Error("Chưa sửa ô Điều chỉnh nào."); return n; }, n => `Đã lưu ${n} điều chỉnh.`); }
+    if (d.activity) return act(() => S.addActivity(d.activity, "Dự họp lớn / hỗ trợ chương trình (có biên bản)"), "Đã ghi nhận nhiệm vụ.");
+  });
+  document.addEventListener("submit", ev => {
+    ev.preventDefault(); const f = ev.target;
+    if (f.id === "intakeForm") return act(() => { const c = S.addCustomer({ name: val("#inName"), last5: val("#inL5"), gender: val("#inGender"), dob: val("#inDob"), skinType: val("#inSkin"), concerns: [...f.querySelectorAll('input[name="concern"]:checked')].map(x => x.value), allergies: val("#inAllergy"), source: val("#inSource"), referralCode: val("#inRef"), consent: $("#inConsent").checked });
+      ui.intakePrefill = null; ui.cusId = c.id; ui.cusTab = "dieu-tri"; const g = S.s.guide; if (g && g.on && gStep() === 0 && c.referrerPartnerId && S.partner(c.referrerPartnerId).code === "HP-2K7Q") g.cus = c.id; setTimeout(() => go("khach-hang"), 0); return c; }, c => `Đã tạo hồ sơ ${c.code}.`);
+    if (f.id === "apptForm") { const c = custFromInput(val("#apCus")); return act(() => { if (!c) throw new Error("Chọn khách từ danh sách gợi ý."); return S.addAppointment({ customerId: c.id, date: val("#apDate"), time: val("#apTime"), type: val("#apType"), staffId: val("#apStaff") || null, note: val("#apNote") }); }, "Đã đặt lịch."); }
+    if (f.id === "sellForm") return act(() => { const c = S.sell({ customerId: val("#sCus") || null, buyerName: val("#sName"), last5: val("#sL5"), referralCode: val("#sRef"), pin: val("#sPin"), firstPayment: Number(val("#sPay")) }); ui.contractId = c.id; ui.sellOpen = false; ui.sellPrefill = null; ui.q = ""; return c; }, c => `Đã ký ${c.code}. Mã đối tác của khách: ${S.partner(c.ownerPartnerId).code}.`);
+    if (f.id === "selForm") { const cid = f.dataset.cid, b = (f.querySelector('input[name="bundle"]:checked') || {}).value || null, options = b ? [...f.querySelectorAll(`input[name="opt-${b}"]:checked`)].map(x => x.value) : [], code = val("#selB"); return act(() => S.saveSelection(cid, { bundle: b, options, extras: code ? [{ code, qty: num("#selQ") || 1 }] : [] }), "Đã lưu phiếu chọn. Chờ bác sĩ chỉ định."); }
+    if (f.id === "reqForm") return act(() => S.createRequest({ category: val("#rqCat"), payee: val("#rqPayee"), amount: num("#rqAmt"), note: val("#rqNote") }), r => `Đã lập ${r.code} — chờ Ban giám đốc duyệt.`);
+    if (f.id === "rateForm") return act(() => S.setRates({ referralFlat: num("#stRef"), addonBps: Math.round(Number(val("#stAdd")) * 100), staff: { consultBps: Math.round(Number(val("#stCon")) * 100), doctorBps: Math.round(Number(val("#stDoc")) * 100), techFee: num("#stTech"), pkgSaleBonus: num("#stPkg") } }), "Đã lưu tỷ lệ (tăng phiên bản).");
+    if (f.id === "netForm") return act(() => S.setNetwork({ enabled: $("#nOn").checked, licenseNo: val("#nLic"), licenseDate: val("#nDate"), lawyerConfirmed: $("#nLaw").checked, levels: S.cfg.network.levels.map((l, i) => ({ bps: Math.round(Number(val("#nb-" + i)) * 100), minChildContracts: num("#nc-" + i), minMonths: num("#nm-" + i) })) }), "Đã lưu cài đặt mạng lưới.");
+  });
+  const keepFocus = (id, fn) => { const el = $("#" + id), pos = el ? el.selectionStart : 0; fn(); render(); const n = $("#" + id); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } };
+  document.addEventListener("input", ev => {
+    const t = ev.target;
+    if (t.id === "q") return keepFocus("q", () => ui.q = t.value);
+    if (t.id === "cq") return keepFocus("cq", () => { ui.cq = t.value; ui.showAll = false; });
+    if (t.id === "tq") return keepFocus("tq", () => ui.tq = t.value);
+    if (t.id === "pq") return keepFocus("pq", () => ui.pq = t.value);
+    if (t.id === "trace") return keepFocus("trace", () => ui.trace = t.value);
+    if (t.id === "sRef" || t.id === "inRef") { const p = S.partnerByCode(t.value), box = $(t.id === "sRef" ? "#refInfo" : "#inRefInfo"); if (box) box.innerHTML = t.value.trim() ? (p ? `<span class="ok">✓ ${esc(S.partnerName(p.id))} · ${p.code} — xác nhận đúng người</span>` : `<span class="err">Không tìm thấy mã</span>`) : "Ví dụ HP-2K7Q."; if (t.id === "inRef" && p) $("#inSource").value = "PARTNER"; }
+  });
+  document.addEventListener("change", ev => {
+    const t = ev.target;
+    if (t.id === "actor") { S.s.actorId = t.value; save(); ui.showAll = false; if (!allowed(location.hash.slice(1))) history.replaceState(null, "", "#" + defRoute()); render(); toast("Bạn đang là: " + S.actor().name + " — " + ROLE_LABEL[role()]); }
+    if (t.id === "today" && t.value) { S.s.today = t.value; save(); render(); toast("Ngày hệ thống: " + vnDate(t.value)); }
+    if (t.id === "pp") { ui.portalPartner = t.value; ui.ptab = "home"; render(); }
+    if (t.id === "fm") { ui.fmonth = t.value; render(); }
+    if (t.id === "apView") { ui.apptDate = t.value; render(); }
+  });
+  $("#menuBtn").addEventListener("click", () => { const s = $("#side"); s.classList.toggle("open"); $("#menuBtn").setAttribute("aria-expanded", s.classList.contains("open")); });
+  document.addEventListener("click", ev => { if (ev.target.closest("#side a") && window.innerWidth < 900) $("#side").classList.remove("open"); });
+  document.addEventListener("keydown", ev => { if (ev.key === "Escape") $("#modal").hidden = true; });
+  $("#modal").addEventListener("click", ev => { if (ev.target.id === "modal") $("#modal").hidden = true; });
+  document.addEventListener("pointerover", ev => { const t = ev.target.closest && ev.target.closest("[data-tip]"), tip = $("#tip"); if (!t) { tip.hidden = true; return; } tip.textContent = t.dataset.tip; tip.hidden = false; const r = t.getBoundingClientRect(); tip.style.left = Math.min(window.innerWidth - 270, Math.max(8, r.left)) + "px"; tip.style.top = Math.max(8, r.top - 38) + "px"; });
+  window.addEventListener("scroll", () => { $("#tip").hidden = true; }, { passive: true });
+  window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); });
+  ui.trace = "";
+  render();
+})();
