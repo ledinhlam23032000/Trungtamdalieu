@@ -6,17 +6,28 @@
   const v = n => HP.vnd(n);
   // Đọc số tiền bằng chữ (tiếng Việt)
   function docSo(n) {
+    if (!Number.isFinite(n) || Math.abs(n) > Number.MAX_SAFE_INTEGER) return "(số tiền không hợp lệ)";
     n = Math.round(Math.abs(n)); if (n === 0) return "Không đồng";
-    const so = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"], hang = ["", " nghìn", " triệu", " tỷ", " nghìn tỷ", " triệu tỷ"];
+    const so = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
     function ba(x, full) { const t = Math.floor(x / 100), c = Math.floor(x % 100 / 10), d = x % 10; let s = "";
       if (full || t) s += so[t] + " trăm";
       if (c > 1) s += " " + so[c] + " mươi" + (d === 1 ? " mốt" : d === 4 ? " tư" : d === 5 ? " lăm" : d ? " " + so[d] : "");
       else if (c === 1) s += " mười" + (d === 5 ? " lăm" : d ? " " + so[d] : "");
       else if (d) s += (full || t ? " lẻ " : " ") + so[d];
       return s.trim(); }
-    const parts = []; let i = 0; while (n > 0) { parts.push(n % 1000); n = Math.floor(n / 1000); i++; }
-    const out = []; for (let k = parts.length - 1; k >= 0; k--) { if (!parts[k]) continue; out.push(ba(parts[k], k < parts.length - 1) + hang[k]); }
-    const s = out.join(" ").replace(/\s+/g, " ").trim(); return s.charAt(0).toUpperCase() + s.slice(1) + " đồng";
+    // Dưới 1 tỷ: [triệu, nghìn, đơn vị]. full = đã có nhóm lớn hơn đứng trước.
+    function duoiTy(x, full) {
+      const g = [Math.floor(x / 1e6), Math.floor(x % 1e6 / 1000), x % 1000], hang = [" triệu", " nghìn", ""], out = [];
+      let started = full;
+      g.forEach((v, k) => {
+        const later = g.slice(k + 1).some(Boolean);
+        if (v) { out.push(ba(v, started) + hang[k]); started = true; }
+        else if (k === 0 && started && later) out.push("không trăm triệu");
+      });
+      return out.join(" ");
+    }
+    function doc(x) { if (x >= 1e9) { const hi = Math.floor(x / 1e9), lo = x % 1e9; return doc(hi) + " tỷ" + (lo ? " " + duoiTy(lo, true) : ""); } return duoiTy(x, false); }
+    const s = doc(n).replace(/\s+/g, " ").trim(); return s.charAt(0).toUpperCase() + s.slice(1) + " đồng";
   }
   const head = (title, no) => `<div class="doc-head"><div><b>BỆNH VIỆN ĐA KHOA HỒNG PHÚC</b><div>TRUNG TÂM DA LIỄU</div></div><div style="text-align:right"><b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><div>Độc lập — Tự do — Hạnh phúc</div></div></div><h1 class="doc-title">${title}</h1>${no ? `<div class="doc-no">Số: ${esc(no)}</div>` : ""}`;
   const sign = (a, b) => `<div class="doc-sign"><div><b>${a}</b><div>(Ký, ghi rõ họ tên)</div></div><div><b>${b}</b><div>(Ký, ghi rõ họ tên)</div></div></div>`;

@@ -12,7 +12,10 @@ const code = (st, c) => st.partner(c.ownerPartnerId).code;
 test("T1 hoàn phần chưa dùng 12tr → 6tr, hạn 15 ngày làm việc", () => {
   const st = fresh(); const c = sell(st, "Khách A", "11111");
   st.s.wallet.push({ id: "x", contractId: c.id, kind: "REDEEM", amount: -18000000, at: st.today });
+  assert.throws(() => as(st, "bich", () => st.endWithRefund(c.id, "EXPIRED")), /Chưa tới hạn/);
+  st.s.today = c.expiresAt;
   const r = as(st, "bich", () => st.endWithRefund(c.id, "EXPIRED"));
+  const rq = st.s.requests.find(x => x.source && x.source.contractId === c.id); assert.equal(rq.amount, 6000000); assert.equal(rq.status, "PENDING");
   assert.equal(r, 6000000); assert.equal(HP.workingDaysBetween(st.today, c.refundDueAt), 15);
 });
 test("T2 T3 T4 quyết toán suất", () => {
@@ -105,8 +108,14 @@ test("Hoàn tiền dịch vụ: không xoá khoản thu, sinh bút toán âm và
   const t = as(st, "maianh", () => st.openTreatment(cus.id)); as(st, "maianh", () => st.addLine(t.id, { code: "D02-01" }));
   const p = as(st, "hoa", () => st.pay(t.id, 2500000));
   assert.throws(() => as(st, "hoa", () => st.refundPayment(p.id, 1000000, "Khách đổi ý")), /quyền/);
-  as(st, "bich", () => st.refundPayment(p.id, 1000000, "Khách đổi ý"));
+  const rq = as(st, "bich", () => st.refundPayment(p.id, 1000000, "Khách đổi ý"));
+  assert.equal(st.s.payments.length, 1, "chưa duyệt thì chưa có tiền ra");
+  assert.throws(() => as(st, "bich", () => st.refundPayment(p.id, 2000000, "thêm")), /tối đa/);
+  as(st, "lam", () => st.approveRequest(rq.id));
+  assert.throws(() => as(st, "lam", () => st.payRequest(rq.id)), /không tự ghi chi|quyền/);
+  as(st, "bich", () => st.payRequest(rq.id));
   assert.equal(st.s.payments.length, 2); assert.equal(st.sumTreatment(t).paid, 1500000);
+  assert.equal(st.sumTreatment(t).debt, 0, "hoàn tiền không tạo công nợ ảo");
   const net = st.s.commissions.filter(e => e.partnerId === a.ownerPartnerId && e.state !== "VOID").reduce((x, e) => x + e.amount, 0);
   assert.equal(net, 300000 - 120000);
 });
@@ -137,4 +146,88 @@ test("Dữ liệu mẫu nhất quán: số dư ví = tổng bút toán ≥ 0; c�
   for (const t of s.treatments) assert.ok(st.sumTreatment(t).paid <= st.sumTreatment(t).total);
   const seen = new Set(); for (const e of s.commissions.filter(x => x.type === "REFERRAL_FLAT" && x.amount > 0)) { assert.ok(!seen.has(e.contractId)); seen.add(e.contractId); }
   assert.equal(s.periods.length, 4);
+});
+
+// ===== Các lỗi do đội kiểm thử độc lập tìm ra — giữ để không tái phát =====
+test("Chống bấm hai lần: cùng nonce không ký 2 hợp đồng / không thu 2 lần", () => {
+  const st = fresh();
+  as(st, "hoa", () => st.sell({ buyerName: "Khách N", last5: "50001", pin: "246810", firstPayment: 0, nonce: "n1" }));
+  assert.throws(() => as(st, "hoa", () => st.sell({ buyerName: "Khách N2", last5: "50002", pin: "246810", firstPayment: 0, nonce: "n1" })), /hai lần/);
+  const c = st.s.contracts[0]; as(st, "hoa", () => st.collect(c.id, 1000000, null, { nonce: "n2" }));
+  assert.throws(() => as(st, "hoa", () => st.collect(c.id, 1000000, null, { nonce: "n2" })), /hai lần/);
+});
+test("Số tiền/số lượng không hợp lệ bị từ chối, không làm tròn lặng lẽ", () => {
+  const st = fresh(); const cus = as(st, "hoa", () => st.addCustomer({ name: "Khách M", last5: "50003", consent: true }));
+  const t = as(st, "maianh", () => st.openTreatment(cus.id));
+  for (const q of ["abc", 1.5, 0, -2, 1e12, NaN]) assert.throws(() => as(st, "maianh", () => st.addLine(t.id, { code: "D01-01", qty: q })));
+  assert.throws(() => as(st, "maianh", () => st.addLine(t.id, { code: "D01-01", discount: "abc" })));
+  as(st, "maianh", () => st.addLine(t.id, { code: "D01-01" }));
+  for (const a of ["1tr", 0.5, -1, "1.005.000,50", Infinity]) assert.throws(() => as(st, "hoa", () => st.pay(t.id, a)));
+});
+test("Thao tác lỗi giữa chừng không để lại nửa dữ liệu (bán gói vào tháng đã chốt)", () => {
+  const st = fresh("2026-12-02"); as(st, "lam", () => st.closeMonth("2026-11")); st.s.today = "2026-11-28";
+  const n = st.s.contracts.length, k = st.s.customers.length;
+  assert.throws(() => sell(st, "Khách C", "50004"), /chốt sổ/);
+  assert.equal(st.s.contracts.length, n); assert.equal(st.s.customers.length, k);
+});
+test("Lương: người đã điều chỉnh không được duyệt; không tự điều chỉnh dòng của mình", () => {
+  const st = fresh("2026-12-02"); const run = as(st, "bich", () => st.createPayrollRun("2026-11"));
+  assert.throws(() => as(st, "lam", () => st.adjustPayroll(run.id, "lam", 50000000, "thưởng")), /chính mình/);
+  as(st, "lam", () => st.adjustPayroll(run.id, "van", 1000000, "thưởng"));
+  assert.throws(() => as(st, "lam", () => st.approvePayroll(run.id)), /điều chỉnh/);
+  as(st, "quyen", () => st.approvePayroll(run.id)); assert.equal(run.status, "APPROVED");
+});
+test("Vai trò không xác định không được coi là Ban giám đốc", () => {
+  const st = fresh(); st.s.actorId = "hacker";
+  assert.throws(() => st.setRates({ referralFlat: 1 }), /quyền/);
+});
+test("Cài đặt: kiểm hết trước khi ghi; tầng 3 luôn khoá; không đổi thì không tăng phiên bản", () => {
+  const st = fresh();
+  assert.throws(() => as(st, "lam", () => st.setRates({ referralFlat: 5000000, addonBps: 2000 })));
+  assert.equal(st.cfg.referralFlat, 3000000); assert.equal(st.cfg.version, 1);
+  assert.throws(() => as(st, "lam", () => st.setRates({ staff: { consultBps: -500 } })));
+  assert.throws(() => as(st, "lam", () => st.setRates({ referralFlat: 3000000 })), /thay đổi/);
+  as(st, "lam", () => st.setNetwork({ enabled: true, licenseNo: "GCN", lawyerConfirmed: true, levels: [{ bps: 500, minChildContracts: 1, minMonths: 0 }, { bps: 2000, minChildContracts: 1, minMonths: 0 }] }));
+  assert.equal(st.cfg.network.levels[1].bps, 0, "mô hình 2 cấp: tầng 3 luôn 0");
+});
+test("Bán gói cho khách đã có người giới thiệu mà không nhập mã → vẫn ghi cho người giới thiệu cũ", () => {
+  const st = fresh(); const f = sell(st, "Trang", "60001");
+  const cus = as(st, "hoa", () => st.addCustomer({ name: "Khách G", last5: "60002", consent: true, referralCode: code(st, f) }));
+  const c = as(st, "hoa", () => st.sell({ buyerName: "Khách G", last5: "60002", pin: "246810", firstPayment: HP.PKG_PRICE }));
+  assert.equal(c.attributedPartnerId, f.ownerPartnerId); assert.equal(st.partner(c.ownerPartnerId).sponsorId, f.ownerPartnerId);
+});
+test("F2: chấm dứt + hoàn tiền trước đối soát → khoản 3tr bị loại", () => {
+  const st = fresh(); const f = sell(st, "GT", "60003"); const c = sell(st, "KH", "60004", code(st, f));
+  as(st, "bich", () => st.endWithRefund(c.id, "TERMINATED"));
+  const e = st.s.commissions.find(x => x.contractId === c.id && x.type === "REFERRAL_FLAT"); assert.equal(e.state, "VOID");
+});
+test("PIN: khoá sau 5 lần sai; ví hết hạn không dùng được; chỉ định số lượng 2 → 2 buổi", () => {
+  const st = fresh(); const c = sell(st, "KH", "60005");
+  const sel = as(st, "hoa", () => st.saveSelection(c.id, { extras: [{ code: "D01-03", qty: 1 }] })); as(st, "bsminh", () => st.prescribe(sel.id, [{ ok: true, qty: 2 }]));
+  const t = as(st, "hoa", () => st.redeem(sel.id, 0, { pin: "246810" })); assert.equal(t.lines[0].sessionsTotal, 2);
+  const s2 = as(st, "hoa", () => st.saveSelection(c.id, { extras: [{ code: "D01-02", qty: 1 }] })); as(st, "bsminh", () => st.prescribe(s2.id, [{ ok: true }]));
+  for (let i = 0; i < 5; i++) assert.throws(() => as(st, "hoa", () => st.redeem(s2.id, 0, { pin: "000000" })));
+  assert.throws(() => as(st, "hoa", () => st.redeem(s2.id, 0, { pin: "246810" })), /khoá/);
+  as(st, "lam", () => st.resetPin(c.id, "135790")); st.s.today = HP.addDays(c.expiresAt, 1);
+  assert.throws(() => as(st, "hoa", () => st.redeem(s2.id, 0, { pin: "135790" })), /hết hạn/);
+});
+test("Ví về 0 vẫn ghi nhận được mục đã chỉ định dưới dạng vượt ví (không bị kẹt)", () => {
+  const st = fresh(); const c = sell(st, "KH", "60006");
+  const sel = as(st, "hoa", () => st.saveSelection(c.id, { bundle: "A03", extras: [{ code: "D01-01", qty: 1 }] })); as(st, "bsminh", () => st.prescribe(sel.id, [{ ok: true }, { ok: true }]));
+  as(st, "hoa", () => st.redeem(sel.id, 0, { pin: "246810" })); assert.equal(c.status, "CONSUMED");
+  const t = as(st, "hoa", () => st.redeem(sel.id, 1, { pin: "246810", overageConsent: true, overagePaid: 200000 }));
+  assert.equal(st.sumTreatment(t).debt, 0);
+});
+test("Bác sĩ không áp giảm giá; giảm trên 50% cần Ban giám đốc", () => {
+  const st = fresh(); const cus = as(st, "hoa", () => st.addCustomer({ name: "KH D", last5: "60007", consent: true }));
+  const t = as(st, "bsminh", () => st.openTreatment(cus.id));
+  assert.throws(() => as(st, "bsminh", () => st.addLine(t.id, { code: "D01-03", discount: 100000 })), /Bác sĩ/);
+  assert.throws(() => as(st, "maianh", () => st.addLine(t.id, { code: "D01-03", discount: 600000 })), /50%/);
+  as(st, "lam", () => st.addLine(t.id, { code: "D01-03", discount: 600000 }));
+});
+test("Đọc số tiền bằng chữ (kể cả từ nghìn tỷ)", () => {
+  globalThis.HP = HP; globalThis.CATALOG = require("../app/catalog.js"); require("../app/docs.js"); const d = globalThis.DOCS.docSo;
+  assert.equal(d(15000000), "Mười lăm triệu đồng"); assert.equal(d(2160000), "Hai triệu một trăm sáu mươi nghìn đồng");
+  assert.equal(d(1005000), "Một triệu không trăm lẻ năm nghìn đồng"); assert.equal(d(1000500000), "Một tỷ không trăm triệu năm trăm nghìn đồng");
+  assert.equal(d(2500000000000), "Hai nghìn năm trăm tỷ đồng"); assert.equal(d(1001000000000), "Một nghìn không trăm lẻ một tỷ đồng");
 });

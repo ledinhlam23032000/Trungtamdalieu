@@ -19,7 +19,7 @@
     const day = (m, max) => `${m}-${String(1 + Math.floor(rnd() * max)).padStart(2, "0")}`;
     const P = {};
     // Nhóm sáng lập — 2 cấp: Long → Trang → Hạnh
-    const founder = (key, nm, d, ref, use) => ev(d, () => { const c = as("hoa", () => st.sell({ buyerName: nm, last5: l5(), referralCode: ref ? P[ref].code : "", pin: "246810", firstPayment: HP.PKG_PRICE })); P[key] = st.partner(c.ownerPartnerId); if (use) redeemSeed(c, use); });
+    const founder = (key, nm, d, ref, use) => ev(d, () => { const c = as("hoa", () => st.sell({ buyerName: nm, last5: l5(), referralCode: ref ? P[ref].code : "", pin: "246810", firstPayment: HP.PKG_PRICE })); P[key] = st.partner(c.ownerPartnerId); if (key === "hanh") P.hanh.code = "HP-2K7Q"; if (use) redeemSeed(c, use); });
     function redeemSeed(c, code) { const b = CAT.itemByCode(code); s.wallet.push({ id: HP.uid("vi"), contractId: c.id, kind: "REDEEM", amount: -b.value, label: b.name, itemCode: b.code, at: s.today, by: "hoa" }); if (st.balance(c.id) === 0) { c.status = "CONSUMED"; c.endedAt = s.today; } }
     founder("long", "Vũ Hoàng Long", "2026-05-20", null, "A04");
     founder("binh", "Trần Văn Bình", "2026-05-22", null, "A05");
@@ -48,7 +48,7 @@
       const pm = HP.prevMonth(m);
       ev(m + "-04", () => { as("bich", () => st.reconcile(pm)); if (m !== "2026-11") { try { const b = as("bich", () => st.createBatch()); as("lam", () => st.approveBatch(b.id)); as("bich", () => st.payBatch(b.id)); } catch (e) { } } });
       ev(m + "-06", () => { const run = as("bich", () => st.createPayrollRun(pm)); as("van", () => st.approvePayroll(run.id)); as("bich", () => st.payRequest(run.requestId)); });
-      ev(m + "-12", () => as("lam", () => st.closeMonth(pm)));
+      ev(m + "-12", () => as("lam", () => st.closeMonth(pm, { force: true })));
     });
     ev("2026-11-04", () => as("bich", () => st.reconcile("2026-10")));
     ev("2026-11-06", () => { const run = as("bich", () => st.createPayrollRun("2026-10")); /* chờ Ban giám đốc duyệt */ });
@@ -68,7 +68,7 @@
     s.seats.s2 = [{ no: 1, partnerId: P.trang.id, path: "A · 50 hợp đồng", from: "2026-10-01" }, { no: 2, partnerId: P.quan.id, path: "B · thực đóng 500tr", from: "2026-09-15" }];
     s.seats.s5 = [{ no: 1, partnerId: P.long.id, path: "Cao cấp · thực đóng 570tr", from: "2026-10-01" }];
     s.activities.push({ id: HP.uid("nv"), partnerId: P.trang.id, month: "2026-11", title: "Dự họp lớn 06/11", at: "2026-11-06", by: "quyen" }, { id: HP.uid("nv"), partnerId: P.trang.id, month: "2026-10", title: "Tổ chức chương trình khách hàng", at: "2026-10-18", by: "quyen" }, { id: HP.uid("nv"), partnerId: P.quan.id, month: "2026-10", title: "Hỗ trợ đội nhóm", at: "2026-10-21", by: "quyen" }, { id: HP.uid("nv"), partnerId: P.long.id, month: "2026-11", title: "Dự họp lớn 06/11", at: "2026-11-06", by: "quyen" }, { id: HP.uid("nv"), partnerId: P.long.id, month: "2026-10", title: "Dự họp lớn 09/10", at: "2026-10-09", by: "quyen" });
-    P.hanh.code = "HP-2K7Q";
+    s.partnerLogins = { "kh-hanh": P.hanh.id, "kh-binh": P.binh.id };
     s.today = today; s.actorId = "hoa"; s.audit = [];
     st.log("DỮ LIỆU MẪU", "Khởi tạo 6 tháng vận hành minh hoạ — tên khách là giả lập");
     return s;

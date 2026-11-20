@@ -3,8 +3,8 @@
   "use strict";
   const { Store, STAFF, TEAMS, ROLE_LABEL, CAN, F, PKG_PRICE, ENTITLEMENT, mulDivFloor, addDays, addMonths, monthOf, nextMonth, prevMonth, daysBetween, vnd, vnDate, maskPhone, evaluateMaintenance } = HP;
   const CAT = window.CATALOG, DOCS = window.DOCS;
-  const KEY = "trungtamdalieu-app-v1";
-  function load() { try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); if (s && s.v === 3) return s; } } catch (e) { } return SEED.seed(); }
+  const KEY = "trungtamdalieu-app-v2";
+  function load() { try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); if (s && s.v === 4) return s; } } catch (e) { } return SEED.seed(); }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S.s)); } catch (e) { } }
   const S = new Store(load());
   window.APP = { S, save };
