@@ -203,7 +203,7 @@ test("F2: chấm dứt + hoàn tiền trước đối soát → khoản 3tr bị
 });
 test("PIN: khoá sau 5 lần sai; ví hết hạn không dùng được; chỉ định số lượng 2 → 2 buổi", () => {
   const st = fresh(); const c = sell(st, "KH", "60005");
-  const sel = as(st, "hoa", () => st.saveSelection(c.id, { extras: [{ code: "D01-03", qty: 1 }] })); as(st, "bsminh", () => st.prescribe(sel.id, [{ ok: true, qty: 2 }]));
+  const sel = as(st, "hoa", () => st.saveSelection(c.id, { extras: [{ code: "D01-03", qty: 2 }] })); as(st, "bsminh", () => st.prescribe(sel.id, [{ ok: true, qty: 2 }]));
   const t = as(st, "hoa", () => st.redeem(sel.id, 0, { pin: "246810" })); assert.equal(t.lines[0].sessionsTotal, 2);
   const s2 = as(st, "hoa", () => st.saveSelection(c.id, { extras: [{ code: "D01-02", qty: 1 }] })); as(st, "bsminh", () => st.prescribe(s2.id, [{ ok: true }]));
   for (let i = 0; i < 5; i++) assert.throws(() => as(st, "hoa", () => st.redeem(s2.id, 0, { pin: "000000" })));
@@ -238,4 +238,23 @@ test("Phạm vi: tư vấn viên không đặt lịch/mở hồ sơ/thu tiền c
   assert.throws(() => as(st, "maianh", () => st.addAppointment({ customerId: c.id, date: "2026-12-21", time: "09:00" })), /phạm vi/);
   assert.throws(() => as(st, "maianh", () => st.addLine(t.id, { code: "D01-01" })), /phạm vi/);
   as(st, "hoa", () => st.addAppointment({ customerId: c.id, date: "2026-12-21", time: "09:00" }));
+});
+
+test("Vòng 2: lương không âm (thiếu chuyển kỳ sau); lô tự tháo đối tác ròng âm; từ chối hoàn gói thì lập lại được; bác sĩ không chỉ định quá số khách chọn", () => {
+  // N5
+  { const st = fresh(); const c = sell(st, "KH", "70001"); const sel = as(st, "hoa", () => st.saveSelection(c.id, { extras: [{ code: "D01-03", qty: 1 }] }));
+    assert.throws(() => as(st, "bsminh", () => st.prescribe(sel.id, [{ ok: true, qty: 20 }])), /1 đến 1/); }
+  // N3
+  { const st = fresh(); const c = sell(st, "KH", "70002"); as(st, "bich", () => st.cancel(c.id)); const r = st.s.requests.find(x => x.id === c.refundRequestId);
+    as(st, "lam", () => st.rejectRequest(r.id, "sai số tài khoản")); assert.equal(c.refundRequestId, null);
+    const r2 = as(st, "bich", () => st.reissueRefund(c.id)); assert.equal(r2.amount, c.refundAmount); assert.throws(() => as(st, "bich", () => st.reissueRefund(c.id)), /đang chờ/);
+    as(st, "lam", () => st.approveRequest(r2.id)); as(st, "bich", () => st.payRequest(r2.id)); assert.ok(c.refundPaidAt); assert.throws(() => as(st, "bich", () => st.reissueRefund(c.id))); }
+  // N2: lô có đối tác ròng ≤ 0 sau khi huỷ → tháo hết, lô rỗng thì trả lại
+  { const st = fresh(); const p = "pX"; const b = { id: "lo1", status: "CHO_DUYET", entryIds: ["e1", "e2"], lines: [], total: 0 };
+    st.s.commissions.push({ id: "e1", partnerId: p, amount: 3000000, state: "IN_BATCH", batchId: "lo1" }, { id: "e2", partnerId: p, amount: -1620000, state: "IN_BATCH", batchId: "lo1" }); st.s.batches.push(b);
+    st.s.commissions[0].state = "VOID"; b.entryIds = ["e2"]; st._rebuildBatch(b);
+    assert.equal(b.status, "TRA_LAI"); assert.equal(b.total, 0); assert.equal(st.s.commissions[1].state, "ELIGIBLE"); assert.equal(st.s.commissions[1].batchId, null); }
+  // N1: hoàn lớn → dòng lương 0, thiếu chuyển kỳ sau
+  { const st = fresh(); const run = { month: "2026-10", status: "APPROVED", lines: [{ staffId: "huy", carryOut: 6500000 }] }; st.s.payrollRuns.push(run);
+    const lines = st.computePayroll("2026-11"); const h = lines.find(l => l.staffId === "huy"); assert.equal(h.carryIn, -6500000); assert.ok(h.total >= 0); assert.ok(lines.every(l => l.total >= 0)); }
 });

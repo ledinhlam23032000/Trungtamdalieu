@@ -196,7 +196,7 @@
       if (!t || t.status !== "OPEN") throw new Error("Hồ sơ không mở.");
       this.assertScope(t.customerId);
       if (!svc || !svc.price) throw new Error("Chọn dịch vụ.");
-      qty = money(qty, "Số lượng", 1, 99); discount = money(discount || 0, "Giảm giá", 0, 5000000000);
+      qty = money(qty, "Số lượng", 1, 99); discount = money(discount == null || discount === "" ? 0 : discount, "Giảm giá", 0, 5000000000);
       const gross = svc.price * qty; if (discount > gross) throw new Error("Giảm giá lớn hơn giá dịch vụ.");
       if (discount > 0 && this.actor().role === "DOCTOR") throw new Error("Bác sĩ không áp giảm giá — tư vấn viên hoặc Ban giám đốc thực hiện.");
       if (discount * 2 > gross && this.actor().role !== "ADMIN") throw new Error("Giảm trên 50% cần Ban giám đốc thực hiện.");
@@ -295,7 +295,7 @@
       this.assertOpen(d);
       if (this.usedNonce(nonce)) throw new Error("Hợp đồng này đã được ký (chống bấm hai lần).");
       if (!/^\d{6}$/.test(String(pin || ""))) throw new Error("Khách tự đặt PIN 6 số để xác nhận mỗi lần dùng quyền lợi.");
-      firstPayment = money(firstPayment || 0, "Số tiền thu lần đầu", 0, PKG_PRICE);
+      firstPayment = money(firstPayment == null || firstPayment === "" ? 0 : firstPayment, "Số tiền thu lần đầu", 0, PKG_PRICE);
       let cus = customerId ? this.customer(customerId) : null, newCus = null;
       if (customerId && !cus) throw new Error("Không thấy khách hàng.");
       if (cus) this.assertScope(cus.id);
@@ -418,7 +418,9 @@
     prescribe(selId, decisions) {
       this.need("prescribe");
       const sel = this.s.selections.find(s => s.id === selId); if (!sel) throw new Error("Không thấy phiếu chọn.");
-      sel.lines.forEach((l, i) => { const d = decisions[i]; if (l.state !== "CHO_BAC_SI" || !d) return; if (d.ok) { l.state = "DA_CHI_DINH"; l.qty = l.bundle || l.code.startsWith("A") ? 1 : money(d.qty || 1, "Số lượng chỉ định", 1, 20); } else { l.state = "KHONG_CHI_DINH"; l.reason = d.reason || ""; } });
+      if (!this.contractUsable(this.contract(sel.contractId))) throw new Error("Gói đã hết hạn hoặc đã kết thúc — không chỉ định thêm.");
+      sel.lines.forEach((l, i) => { const d = decisions[i]; if (!d || l.state !== "CHO_BAC_SI" || l.bundle || l.code.startsWith("A")) return; if (d.ok) { const want = l.wantQty || l.qty || 1; money(d.qty || 1, "Số lượng chỉ định", 1, want); } });
+      sel.lines.forEach((l, i) => { const d = decisions[i]; if (l.state !== "CHO_BAC_SI" || !d) return; if (d.ok) { l.state = "DA_CHI_DINH"; l.wantQty = l.wantQty || l.qty; l.qty = l.bundle || l.code.startsWith("A") ? 1 : money(d.qty || 1, "Số lượng chỉ định", 1, l.wantQty || 99); } else { l.state = "KHONG_CHI_DINH"; l.reason = d.reason || ""; } });
       sel.doctor = this.actor().id; this.log("BÁC SĨ CHỈ ĐỊNH", `${this.contract(sel.contractId).code}`);
     }
     redeem(selId, idx, { pin, overageConsent, overagePaid, nonce } = {}) {
@@ -434,7 +436,7 @@
       const value = l.unitValue * l.qty, bal = this.balance(c.id);
       const fromWallet = Math.min(value, Math.max(0, bal)), over = value - fromWallet;
       if (over > 0 && !overageConsent) throw new Error(`Vượt ví ${vnd(over)}đ — cần khách đồng ý trước khi làm (T16).`);
-      const paidOver = over > 0 ? money(overagePaid || 0, "Số thu phần vượt", 0, over) : 0;
+      const paidOver = over > 0 ? money(overagePaid == null || overagePaid === "" ? 0 : overagePaid, "Số thu phần vượt", 0, over) : 0;
       if (paidOver > 0) { this.need("pay"); if (this.usedNonce(nonce)) throw new Error("Khoản thu này đã ghi (chống bấm hai lần)."); }
       const sessions = l.bundle || l.code.startsWith("A") ? (l.sessions || 1) : (l.unit ? (l.sessions || 1) : (l.sessions || 1) * l.qty);
       // ---- mọi kiểm tra đã xong: bắt đầu ghi ----
@@ -463,10 +465,26 @@
     _voidUnpaidReferral(c, why) {
       for (const e of this.s.commissions.filter(e => e.contractId === c.id && e.amount > 0 && ["REFERRAL_FLAT", "NETWORK"].includes(e.type))) {
         if (this.s.commissions.some(x => x.reversalOf === e.id)) continue;
-        if (e.batchId) { const b = this.s.batches.find(x => x.id === e.batchId); if (b && b.status === "CHO_DUYET") { b.entryIds = b.entryIds.filter(id => id !== e.id); const ln = b.lines.find(x => x.partnerId === e.partnerId); if (ln) { ln.net -= e.amount; ln.count--; } b.lines = b.lines.filter(x => x.count > 0 && x.net > 0); b.total -= e.amount; e.batchId = null; e.state = "ELIGIBLE"; if (!b.entryIds.length) b.status = "TRA_LAI"; } }
+        if (e.batchId) { const b = this.s.batches.find(x => x.id === e.batchId); if (b && b.status === "CHO_DUYET") { b.entryIds = b.entryIds.filter(id => id !== e.id); e.batchId = null; e.state = "ELIGIBLE"; this._rebuildBatch(b); } }
         if (["PENDING", "ELIGIBLE"].includes(e.state) && !e.batchId) { e.state = "VOID"; this.s.commissions.push({ id: uid("hh"), partnerId: e.partnerId, type: "CLAWBACK", state: "VOID", amount: -e.amount, reversalOf: e.id, contractId: c.id, period: e.period, at: this.today, note: `${why} ${c.code} trước khi trả — đảo` }); }
         else if (why === "Huỷ") this.s.commissions.push({ id: uid("hh"), partnerId: e.partnerId, type: "OFFSET", state: "ELIGIBLE", amount: -e.amount, reversalOf: e.id, contractId: c.id, period: nextMonth(monthOf(this.today)), at: this.today, note: `Huỷ ${c.code} sau khi đã trả — bù trừ kỳ sau (D6)` });
       }
+    }
+    // Tính lại lô chờ duyệt: đối tác nào có số ròng ≤ 0 thì tháo hết khoản của người đó về "khả dụng" (chuyển kỳ sau); lô rỗng → trả lại.
+    _rebuildBatch(b) {
+      const byP = {}; b.entryIds.forEach(id => { const e = this.s.commissions.find(x => x.id === id); (byP[e.partnerId] = byP[e.partnerId] || []).push(e); });
+      const ids = [], lines = []; let total = 0;
+      for (const [pid, es] of Object.entries(byP)) { const net = es.reduce((a, e) => a + e.amount, 0); if (net <= 0) { es.forEach(e => { e.batchId = null; e.state = "ELIGIBLE"; }); continue; } es.forEach(e => ids.push(e.id)); total += net; lines.push({ partnerId: pid, net, count: es.length }); }
+      b.entryIds = ids; b.lines = lines; b.total = total; if (!ids.length) b.status = "TRA_LAI";
+    }
+    // Lập lại đề nghị hoàn tiền gói (sau khi lần trước bị từ chối) — tiền khách không bị kẹt.
+    reissueRefund(cid) {
+      this.need("end");
+      const c = this.contract(cid); if (!c) throw new Error("Không thấy hợp đồng.");
+      if (!["CANCELLED", "EXPIRED", "TERMINATED"].includes(c.status) || !(c.refundAmount > 0) || c.refundPaidAt) throw new Error("Hợp đồng này không còn khoản hoàn nào.");
+      if (c.refundRequestId) throw new Error("Đã có đề nghị hoàn đang chờ xử lý.");
+      const r = this._refundPackageRequest(c, c.refundAmount, "Lập lại đề nghị hoàn");
+      this.log("LẬP LẠI ĐỀ NGHỊ HOÀN", `${c.code} · ${vnd(c.refundAmount)}đ · ${r.code}`); return r;
     }
     endWithRefund(cid, reason) {
       this.need("end"); this.assertOpen(this.today);
@@ -595,6 +613,7 @@
     }
     computePayroll(m) {
       const st = this.cfg.staff, rev = Math.max(0, this.programRevenue(m));
+      const prevRun = this.s.payrollRuns.find(r => r.month === prevMonth(m) && r.status !== "REJECTED");
       return STAFF.filter(x => !["SHAREHOLDER", "PARTNER"].includes(x.role)).map(x => {
         const trs = this.s.treatments;
         const consultBase = this.s.payments.filter(p => monthOf(p.at) === m && trs.find(t => t.id === p.treatmentId && t.consultantId === x.id)).reduce((a, p) => a + p.amount, 0);
@@ -608,7 +627,10 @@
         const leader = x.pctBps ? F.pct(rev, x.pctBps) : 0;
         const pkgBonus = pkgs * (st.pkgSaleBonus || 0);
         const base = x.base || 0;
-        return { staffId: x.id, base, consult, consultBase, doctor, doctorBase, tech, sessions: sess, leader, pkgs, pkgBonus, adjust: 0, total: base + consult + doctor + tech + leader + pkgBonus };
+        // Thu hồi lớn hơn thu nhập: dòng lương không xuống dưới 0, phần thiếu chuyển trừ kỳ sau.
+        const pl = prevRun && prevRun.lines.find(l => l.staffId === x.id), carryIn = pl && pl.carryOut ? -pl.carryOut : 0;
+        const raw = base + consult + doctor + tech + leader + pkgBonus + carryIn;
+        return { staffId: x.id, base, consult, consultBase, doctor, doctorBase, tech, sessions: sess, leader, pkgs, pkgBonus, carryIn, carryOut: raw < 0 ? -raw : 0, adjust: 0, total: Math.max(0, raw) };
       });
     }
     createPayrollRun(m) {
@@ -627,8 +649,9 @@
       const l = run.lines.find(x => x.staffId === staffId); if (!l) throw new Error("Không thấy nhân sự trong bảng lương.");
       if (staffId === this.actor().id) this.deny("Không tự điều chỉnh dòng lương của chính mình.");
       const v = money(amount, "Số tiền điều chỉnh", -100000000, 100000000);
-      const total = l.base + l.consult + l.doctor + l.tech + l.leader + l.pkgBonus + v;
+      const total = l.base + l.consult + l.doctor + l.tech + l.leader + l.pkgBonus + (l.carryIn || 0) + v;
       if (total < 0) throw new Error("Tổng lương sau điều chỉnh không được âm.");
+      if (l.carryOut && v > 0) l.carryOut = Math.max(0, l.carryOut - v);
       const before = l.adjust; l.adjust = v; l.adjustNote = String(note).trim().slice(0, 200); l.total = total;
       run.total = run.lines.reduce((a, x) => a + x.total, 0);
       run.adjustedBy = Array.from(new Set([...(run.adjustedBy || []), this.actor().id]));
@@ -638,6 +661,7 @@
       this.need("payrollApprove");
       const run = this.s.payrollRuns.find(r => r.id === runId); if (!run || run.status !== "DRAFT") throw new Error("Bảng lương không ở trạng thái chờ duyệt.");
       if (run.createdBy === this.actor().id) this.deny(`Người lập ${run.code} không được tự duyệt.`);
+      if (run.lines.some(l => l.total < 0)) throw new Error("Bảng lương có dòng âm — không duyệt được.");
       if ((run.adjustedBy || []).includes(this.actor().id)) this.deny(`Người đã điều chỉnh ${run.code} không được duyệt — mời người khác trong Ban giám đốc.`);
       run.status = "APPROVED"; run.approvedBy = this.actor().id; run.approvedAt = this.today;
       const r = { id: uid("dn"), code: this.code("dn", "DNTT-", 5), category: "LUONG", payee: `Nhân sự — bảng lương ${run.month}`, amount: run.total, note: run.code, status: "APPROVED", createdBy: run.createdBy, createdAt: run.createdAt, approvedBy: this.actor().id, approvedAt: this.today, source: { type: "PAYROLL", id: run.id } };
@@ -658,13 +682,14 @@
       const expense = Object.values(out).reduce((a, b) => a + b, 0);
       return { month: m, treatmentIncome: trIn, packageIncome: pkIn, income: trIn + pkIn, expenseByCat: out, expense, profit: trIn + pkIn - expense };
     }
-    closePending(m) { return { requests: this.s.requests.filter(r => monthOf(r.createdAt) <= m && ["PENDING", "APPROVED"].includes(r.status)).length, payroll: this.s.payrollRuns.filter(r => r.month <= m && r.status === "DRAFT").length }; }
+    closePending(m) { return { requests: this.s.requests.filter(r => monthOf(r.createdAt) <= m && ["PENDING", "APPROVED"].includes(r.status)).length, payroll: this.s.payrollRuns.filter(r => r.month <= m && r.status === "DRAFT").length, batches: this.s.batches.filter(b => monthOf(b.createdAt) <= m && ["CHO_DUYET", "DA_DUYET"].includes(b.status)).length }; }
     closeMonth(m, { force = false } = {}) {
       this.need("closeMonth");
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(m))) throw new Error("Tháng không hợp lệ.");
       if (m >= monthOf(this.today)) throw new Error("Chỉ chốt sổ tháng đã kết thúc.");
       if (this.isClosed(m)) throw new Error("Tháng này đã chốt.");
       const pend = this.closePending(m);
-      if ((pend.requests || pend.payroll) && !force) { const e = new Error(`Còn ${pend.requests} chứng từ chưa chi và ${pend.payroll} bảng lương nháp. Xử lý xong hoặc bấm "Vẫn chốt".`); e.needForce = true; throw e; }
+      if ((pend.requests || pend.payroll || pend.batches) && !force) { const e = new Error(`Còn ${pend.requests} chứng từ chưa chi, ${pend.payroll} bảng lương nháp và ${pend.batches} lô hoa hồng chưa chi. Xử lý xong hoặc bấm "Vẫn chốt".`); e.needForce = true; throw e; }
       const snap = this.monthSummary(m);
       this.s.periods.push({ month: m, closedBy: this.actor().id, closedAt: this.today, snapshot: snap, pendingAtClose: pend }); // giữ lịch sử các lần chốt/mở
       this.log("CHỐT SỔ", `Tháng ${m} · thu ${vnd(snap.income)}đ · chi ${vnd(snap.expense)}đ · lãi ${vnd(snap.profit)}đ${pend.requests || pend.payroll ? ` · còn ${pend.requests} chứng từ, ${pend.payroll} bảng lương treo` : ""}`);
