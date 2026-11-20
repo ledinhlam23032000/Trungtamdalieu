@@ -231,3 +231,11 @@ test("Đọc số tiền bằng chữ (kể cả từ nghìn tỷ)", () => {
   assert.equal(d(1005000), "Một triệu không trăm lẻ năm nghìn đồng"); assert.equal(d(1000500000), "Một tỷ không trăm triệu năm trăm nghìn đồng");
   assert.equal(d(2500000000000), "Hai nghìn năm trăm tỷ đồng"); assert.equal(d(1001000000000), "Một nghìn không trăm lẻ một tỷ đồng");
 });
+test("Phạm vi: tư vấn viên không đặt lịch/mở hồ sơ/thu tiền cho khách ngoài phạm vi", () => {
+  const st = fresh(); const c = as(st, "hoa", () => st.addCustomer({ name: "Khách P", last5: "70001", consent: true }));
+  const t = as(st, "linh", () => st.openTreatment(c.id)); // khách mới chưa ai phụ trách → linh nhận
+  st.s.today = "2026-12-20";
+  assert.throws(() => as(st, "maianh", () => st.addAppointment({ customerId: c.id, date: "2026-12-21", time: "09:00" })), /phạm vi/);
+  assert.throws(() => as(st, "maianh", () => st.addLine(t.id, { code: "D01-01" })), /phạm vi/);
+  as(st, "hoa", () => st.addAppointment({ customerId: c.id, date: "2026-12-21", time: "09:00" }));
+});

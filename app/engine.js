@@ -127,6 +127,11 @@
     log(action, detail) { this.s.audit.unshift({ at: this.today, actor: this.actor().name, action, detail }); }
     code(kind, prefix, w) { this.s.seq[kind] = (this.s.seq[kind] || 0) + 1; return prefix + String(this.s.seq[kind]).padStart(w, "0"); }
     isClosed(m) { return this.s.periods.some(p => p.month === m && !p.reopenedAt); }
+    // Phạm vi: tư vấn viên/trưởng nhóm chỉ thao tác trên khách trong phạm vi của mình.
+    assertScope(customerId) {
+      if (!["LEAD", "CONSULTANT"].includes(this.actor().role)) return;
+      if (!this.visibleCustomers().some(c => c.id === customerId)) this.deny("Khách này không thuộc phạm vi của bạn.");
+    }
     usedNonce(n) { return !!n && (this.s.payments.some(p => p.nonce === n) || this.s.pkgPayments.some(p => p.nonce === n) || this.s.contracts.some(c => c.nonce === n)); }
     assertOpen(date) { if (this.isClosed(monthOf(date))) throw new Error(`Tháng ${monthOf(date)} đã chốt sổ — không ghi thêm tiền vào tháng này.`); }
 
@@ -160,6 +165,7 @@
     addAppointment({ customerId, date, time, type, note, staffId }) {
       this.need("appt");
       if (!this.customer(customerId)) throw new Error("Chọn khách hàng.");
+      this.assertScope(customerId);
       if (!date || date < this.today) throw new Error("Ngày hẹn phải từ hôm nay trở đi.");
       if (!/^\d{2}:\d{2}$/.test(time || "")) throw new Error("Nhập giờ hẹn dạng 09:30.");
       if (time < "07:00" || time > "20:00") throw new Error("Giờ hẹn phải trong giờ làm việc 07:00–20:00.");
@@ -180,6 +186,7 @@
     openTreatment(customerId, { consultantId, doctorId, note, kind } = {}) {
       this.need("treatOpen");
       if (!this.customer(customerId)) throw new Error("Không thấy khách hàng.");
+      this.assertScope(customerId);
       const t = { id: uid("hs"), code: this.code("tr", "HS", 5), customerId, openedAt: this.today, consultantId: consultantId || (["LEAD", "CONSULTANT"].includes(this.actor().role) ? this.actor().id : null), doctorId: doctorId || (this.actor().role === "DOCTOR" ? this.actor().id : null), status: "OPEN", lines: [], note: note || "", kind: kind || "NORMAL" };
       this.s.treatments.push(t); this.log("MỞ HỒ SƠ", `${t.code} · ${this.customer(customerId).name}`); return t;
     }
@@ -187,6 +194,7 @@
       this.need("treatLine");
       const t = this.treatment(tid); const svc = CAT.itemByCode(code);
       if (!t || t.status !== "OPEN") throw new Error("Hồ sơ không mở.");
+      this.assertScope(t.customerId);
       if (!svc || !svc.price) throw new Error("Chọn dịch vụ.");
       qty = money(qty, "Số lượng", 1, 99); discount = money(discount || 0, "Giảm giá", 0, 5000000000);
       const gross = svc.price * qty; if (discount > gross) throw new Error("Giảm giá lớn hơn giá dịch vụ.");
@@ -224,6 +232,7 @@
       this.need("pay"); this.assertOpen(this.today);
       const t = this.treatment(tid);
       if (!t) throw new Error("Không thấy hồ sơ.");
+      this.assertScope(t.customerId);
       if (this.usedNonce(nonce)) throw new Error("Khoản thu này đã ghi (chống bấm hai lần).");
       amount = money(amount, "Số tiền thu", 1);
       const { debt } = this.sumTreatment(t);
@@ -289,6 +298,7 @@
       firstPayment = money(firstPayment || 0, "Số tiền thu lần đầu", 0, PKG_PRICE);
       let cus = customerId ? this.customer(customerId) : null, newCus = null;
       if (customerId && !cus) throw new Error("Không thấy khách hàng.");
+      if (cus) this.assertScope(cus.id);
       if (!cus) {
         buyerName = String(buyerName || "").trim().replace(/\s+/g, " "); last5 = String(last5 || "").trim();
         if (buyerName.length < 2 || /[<>"{}]/.test(buyerName)) throw new Error("Nhập họ tên người mua (chỉ chữ và khoảng trắng).");
@@ -684,6 +694,8 @@
     }
     logCare(customerId, kind, note) {
       this.need("care");
+      if (!this.customer(customerId)) throw new Error("Không thấy khách hàng.");
+      this.assertScope(customerId);
       if (!String(note || "").trim()) throw new Error("Ghi lại nội dung đã trao đổi với khách.");
       this.s.careLogs.push({ id: uid("cs"), customerId, kind, note, at: this.today, by: this.actor().id }); this.log("CHĂM SÓC", `${this.customer(customerId).name} · ${note}`);
     }
