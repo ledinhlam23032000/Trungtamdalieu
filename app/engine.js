@@ -279,7 +279,7 @@
     balance(cid) { return this.s.wallet.filter(w => w.contractId === cid).reduce((a, w) => a + w.amount, 0); }
     used(cid) { return -this.s.wallet.filter(w => w.contractId === cid && w.kind === "REDEEM").reduce((a, w) => a + w.amount, 0); }
     isValidForKpi(c) { return !!c.fullyPaidAt && c.status !== "CANCELLED" && c.countsForKpi; }
-    sell({ customerId, buyerName, last5, referralCode, pin, firstPayment, date, nonce }) {
+    sell({ customerId, buyerName, last5, referralCode, pin, firstPayment, date, nonce, consent = true }) {
       this.need("sell");
       const d = date || this.today;
       if (d !== this.today) throw new Error("Chỉ ghi hợp đồng vào ngày hôm nay.");
@@ -294,7 +294,7 @@
         if (buyerName.length < 2 || /[<>"{}]/.test(buyerName)) throw new Error("Nhập họ tên người mua (chỉ chữ và khoảng trắng).");
         if (!/^\d{5}$/.test(last5)) throw new Error("Nhập đúng 5 số cuối SĐT.");
         cus = this.s.customers.find(c => c.last5 === last5 && c.name.toLowerCase() === buyerName.toLowerCase());
-        if (!cus) newCus = { id: uid("kh"), name: buyerName, last5 };
+        if (!cus) { if (!consent) throw new Error("Người mua mới cần đồng ý cho trung tâm lưu và xử lý thông tin cá nhân."); newCus = { id: uid("kh"), name: buyerName, last5 }; }
       }
       let owner = cus ? this.partnerOfCustomer(cus.id) : null;
       let attributed = null;

@@ -19,10 +19,29 @@
   const mlabel = m => "T" + Number(m.slice(5));
   const sname = id => (S.staff(id) || {}).name || "—";
   const role = () => S.actor().role;
-  const num = id => Math.round(Number(String(($(id) || {}).value || "0").replace(/[^\d-]/g, "")) || 0);
+  const num = id => moneyOf(id, "Số tiền");
   const val = id => (($(id) || {}).value || "").trim();
   function toast(msg, bad) { const t = $("#toast"); t.textContent = msg; t.className = "toast" + (bad ? " bad" : ""); t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, bad ? 7000 : 4200); }
-  function act(fn, ok) { try { const r = fn(); save(); render(); if (ok) toast(typeof ok === "function" ? ok(r) : ok); return r; } catch (e) { save(); render(); toast(e.message, true); } }
+  let busyUntil = 0;
+  // Mỗi thao tác là một giao dịch: lỗi ở bất kỳ bước nào → khôi phục nguyên trạng (chỉ giữ dòng nhật ký "TỪ CHỐI"), không vẽ lại để giữ nội dung form.
+  function act(fn, ok) {
+    const snap = JSON.stringify(S.s);
+    try { const r = fn(); save(); busyUntil = Date.now() + 900; render(); if (ok) toast(typeof ok === "function" ? ok(r) : ok); return r; }
+    catch (e) { const denied = S.s.audit.filter(a => a.action === "TỪ CHỐI" || a.action === "SAI PIN"), prev = JSON.parse(snap); const keep = denied.slice(0, Math.max(0, denied.length - prev.audit.filter(a => a.action === "TỪ CHỐI" || a.action === "SAI PIN").length));
+      const pinState = {}; S.s.contracts.forEach(c => { if (c.pinFails || c.pinLocked) pinState[c.id] = { pinFails: c.pinFails, pinLocked: c.pinLocked }; });
+      S.s = prev; S.s.audit = [...keep, ...S.s.audit]; S.s.contracts.forEach(c => { if (pinState[c.id]) Object.assign(c, pinState[c.id]); });
+      save(); toast(e.message, true); if (e.after) e.after(); return null; }
+  }
+  // Đọc số tiền: chấp nhận 1.005.000 / 1005000 / 1 005 000; từ chối chữ, dấu phẩy, số lẻ.
+  function moneyOf(id, label, allowNeg) {
+    const raw = String(($(id) || {}).value || "").trim(); if (raw === "") throw new Error(`Nhập ${label}.`);
+    const neg = allowNeg && raw.startsWith("-"), body = neg ? raw.slice(1).trim() : raw;
+    if (!/^\d+$/.test(body) && !/^\d{1,3}([. ]\d{3})+$/.test(body)) throw new Error(`${label} không hợp lệ: "${raw}". Nhập số đồng, ví dụ 1.500.000.`);
+    const n = Number(body.replace(/[. ]/g, "")); if (!Number.isSafeInteger(n)) throw new Error(`${label} quá lớn.`); return neg ? -n : n;
+  }
+  function intOf(id, label, min, max) { const raw = String(($(id) || {}).value || "").trim(); if (!/^\d+$/.test(raw)) throw new Error(`${label} phải là số nguyên.`); const n = Number(raw); if (n < min || n > max) throw new Error(`${label} từ ${min} đến ${max}.`); return n; }
+  const fmt = n => vnd(n);
+  const nonce = () => "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const pill = (k, t) => `<span class="pill ${k}">${t}</span>`;
   const STAFF_ROLES = ["ADMIN", "MANAGER", "RECEPTION", "LEAD", "CONSULTANT", "DOCTOR", "TECH", "MEDIA", "SHAREHOLDER"];
   const FRONT = ["ADMIN", "RECEPTION", "LEAD", "CONSULTANT"];
@@ -49,6 +68,9 @@
   const allowed = k => { const r = ROUTES.find(x => x[0] === k); return !!r && r[3].includes(role()); };
   const defRoute = () => role() === "PARTNER" ? "cong-doi-tac" : "viec-hom-nay";
   const route = () => { const h = location.hash.slice(1); return allowed(h) ? h : defRoute(); };
+  const ini = n => { const p = String(n).trim().split(/\s+/); return p.length > 1 ? p.slice(0, -1).map(w => w[0] + ".").join("") + " " + p[p.length - 1] : n; };
+  const limited = () => ["LEAD", "CONSULTANT"].includes(role()); // phạm vi hẹp: chỉ khách của mình / nhóm mình
+  const visSet = () => new Set(S.visibleCustomers().map(c => c.id));
   let ui = { cusId: null, cusTab: "dieu-tri", contractId: null, q: "", cq: "", apptDate: null, fmonth: null, runId: null, partnerId: null, pq: "", tq: "", portalPartner: null, ptab: "home", testRun: null, sellPrefill: null, sellOpen: false, showAll: false, reqTab: "PENDING", docKind: "hop-dong" };
   function go(r) { if (location.hash.slice(1) === r) render(); else location.hash = r; }
 
@@ -60,15 +82,18 @@
     return b;
   }
   function renderTop() {
-    const groups = [...new Set(STAFF.map(x => x.role))];
-    $("#actor").innerHTML = groups.map(g => `<optgroup label="${ROLE_LABEL[g]}">${STAFF.filter(x => x.role === g).map(x => `<option value="${x.id}" ${x.id === S.s.actorId ? "selected" : ""}>${esc(x.name)} — ${esc(x.label)}</option>`).join("")}</optgroup>`).join("");
-    $("#today").value = S.today;
-    const r = route(), bd = badges(); let last = "", h = "";
-    for (const [k, l, g, roles] of ROUTES) { if (!roles.includes(role())) continue; if (g !== last) { h += `<div class="grp">${g}</div>`; last = g; } h += `<a href="#${k}" class="${k === r ? "on" : ""}">${l}${bd[k] ? `<span class="badge">${bd[k]}</span>` : ""}</a>`; }
-    $("#side").innerHTML = h;
+    const r = route(), bd = badges(), R = role();
+    const sel = $("#actor"), pbtn = $("#partnerExit");
+    if (R === "PARTNER") { sel.hidden = true; if (!pbtn) sel.insertAdjacentHTML("afterend", `<button class="btn sm" id="partnerExit" data-exitpartner="1" type="button">Thoát vai khách (bản thử)</button>`); }
+    else { sel.hidden = false; if (pbtn) pbtn.remove();
+      const groups = [...new Set(STAFF.filter(x => x.role !== "PARTNER").map(x => x.role))];
+      sel.innerHTML = groups.map(g => `<optgroup label="${ROLE_LABEL[g]}">${STAFF.filter(x => x.role === g).map(x => `<option value="${x.id}" ${x.id === S.s.actorId ? "selected" : ""}>${esc(x.name)} — ${esc(x.label)}</option>`).join("")}</optgroup>`).join("") + `<optgroup label="Khách hàng / Đối tác (cổng riêng)">${STAFF.filter(x => x.role === "PARTNER").map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</optgroup>`; }
+    const td = $("#today"); td.value = S.today; td.disabled = R !== "ADMIN"; td.title = R === "ADMIN" ? "Bản thử: Ban giám đốc đổi được ngày hệ thống" : "Chỉ Ban giám đốc đổi ngày (bản thử)";
+    document.querySelectorAll('label[for="today"],#today').forEach(e => e.hidden = R === "PARTNER");
+    let last = "", h = "";
+    for (const [k, l, g, roles] of ROUTES) { if (!roles.includes(R)) continue; if (g !== last) { h += `<div class="grp">${g}</div>`; last = g; } h += `<a href="#${k}" class="${k === r ? "on" : ""}">${l}${bd[k] ? `<span class="badge">${bd[k]}</span>` : ""}</a>`; }
+    $("#side").innerHTML = h; $("#menuBtn").hidden = R === "PARTNER";
   }
-
-  // ---------- biểu đồ ----------
   function barChart(vals, labels, { fmt = short, h = 130, unit = "đ" } = {}) {
     const W = 320, H = h, pl = 4, pr = 4, pt = 18, pb = 20, n = vals.length, max = Math.max(...vals, 1), slot = (W - pl - pr) / n, bw = Math.min(28, slot * .58), base = H - pb;
     const bars = vals.map((v, i) => { const x = pl + i * slot + (slot - bw) / 2, bh = Math.max(v > 0 ? 2 : 0, (Math.max(0, v) / max) * (base - pt)), y = base - bh, r = Math.min(4, bh / 2, bw / 2);
@@ -79,9 +104,7 @@
   }
   function spark(vals) { const W = 84, H = 24, n = vals.length, max = Math.max(...vals, 1), slot = W / n, bw = slot * .6; return `<svg viewBox="0 0 ${W} ${H}" width="84" height="24" aria-hidden="true">${vals.map((v, i) => { const bh = Math.max(v > 0 ? 2 : 0, v / max * (H - 2)); return `<rect x="${i * slot + (slot - bw) / 2}" y="${H - bh}" width="${bw}" height="${bh}" rx="1.5" fill="var(--accent)" opacity="${i === n - 1 ? .55 : 1}"/>`; }).join("")}</svg>`; }
   const last6 = () => { const m = monthOf(S.today); return [5, 4, 3, 2, 1, 0].map(k => addMonths(m + "-01", -k).slice(0, 7)); };
-  function growth(cur, prev) { if (!prev) return cur ? pill("pos", "mới") : pill("mute", "—"); const g = Math.round((cur - prev) / Math.abs(prev) * 100); return pill(g >= 0 ? "pos" : "neg", `${g >= 0 ? "▲" : "▼"} ${Math.abs(g)}%`); }
-
-  // ---------- giấy tờ (hộp thoại) ----------
+  function growth(cur, prev, label) { const tag = label ? `${label}: ` : ""; if (!prev) return cur ? pill("pos", tag + "mới") : pill("mute", tag + "—"); const g = Math.round((cur - prev) / Math.abs(prev) * 100); return pill(g >= 0 ? "pos" : "neg", `${tag}${g >= 0 ? "▲" : "▼"} ${Math.abs(g)}%`); }
   function openDoc(html, title) {
     const m = $("#modal"); m.innerHTML = `<div class="box" role="dialog" aria-label="${esc(title)}"><div class="bar"><b style="flex:1">${esc(title)}</b><button class="btn sm" data-copydoc="1">Sao chép nội dung</button><button class="btn sm pri" data-closedoc="1">Đóng</button></div><div class="paper" id="paper">${html}</div><p class="hint" style="margin:8px 4px 0">Bản in A4 điền sẵn từ dữ liệu. Khi mở app trực tiếp trên máy tính (không qua bản xem trước), bấm Ctrl+P để in hoặc lưu PDF.</p></div>`;
     m.hidden = false; m.scrollTop = 0;
@@ -89,35 +112,41 @@
 
   // =================== VIỆC HÔM NAY ===================
   function viewToday() {
-    const r = role(), a = S.actor(), t = S.today, cards = [];
-    const appts = S.s.appointments.filter(x => x.date === t).sort((x, y) => x.time.localeCompare(y.time));
+    const r = role(), a = S.actor(), t = S.today, cards = [], vis = visSet();
+    const appts = S.s.appointments.filter(x => x.date === t && (!limited() || vis.has(x.customerId))).sort((x, y) => x.time.localeCompare(y.time));
     const apptCard = list => `<div class="card"><h3>Lịch hẹn hôm nay ${pill("mute", list.length)}</h3><div class="list">${list.map(x => apptRow(x)).join("") || `<div class="hint">Không có lịch hẹn.</div>`}</div></div>`;
     if (["ADMIN", "RECEPTION", "LEAD", "CONSULTANT"].includes(r)) cards.push(apptCard(appts));
     if (r === "DOCTOR") {
       cards.push(apptCard(appts.filter(x => !x.staffId || x.staffId === a.id)));
       const sels = S.s.selections.filter(x => x.lines.some(l => l.state === "CHO_BAC_SI"));
-      cards.push(`<div class="card"><h3>Phiếu chọn chờ bạn chỉ định ${pill(sels.length ? "pend" : "mute", sels.length)}</h3><div class="list">${sels.map(x => { const c = S.contract(x.contractId); return `<div class="li"><span><b>${esc(S.customer(c.customerId).name)}</b><div class="hint">${esc(x.lines.filter(l => l.state === "CHO_BAC_SI").map(l => l.name).join(", "))}</div></span><span class="amt"><button class="btn sm pri" data-opencontract="${c.id}">Mở để chỉ định</button></span></div>`; }).join("") || `<div class="hint">Không có phiếu chờ.</div>`}</div></div>`);
+      cards.push(`<div class="card"><h3>Phiếu chọn chờ bạn chỉ định ${pill(sels.length ? "pend" : "mute", sels.length)}</h3><div class="list">${sels.map(x => { const c = S.contract(x.contractId), cu = S.customer(c.customerId); return `<div class="li"><span><b>${esc(cu.name)}</b>${cu.allergies ? ` ${pill("neg", "Dị ứng")}` : ""}<div class="hint">${esc(x.lines.filter(l => l.state === "CHO_BAC_SI").map(l => l.name).join(", "))}</div></span><span class="amt"><button class="btn sm pri" data-opencontract="${c.id}">Mở để chỉ định</button></span></div>`; }).join("") || `<div class="hint">Không có phiếu chờ.</div>`}</div></div>`);
     }
     if (["TECH", "DOCTOR"].includes(r)) {
-      const todo = S.s.treatments.filter(x => x.status === "OPEN").flatMap(x => x.lines.filter(l => l.sessionsDone < l.sessionsTotal).map(l => ({ x, l }))).slice(0, 12);
-      cards.push(`<div class="card"><h3>Dịch vụ còn buổi chưa làm ${pill("mute", todo.length)}</h3><div class="list">${todo.map(({ x, l }) => `<div class="li"><span><b>${esc(S.customer(x.customerId).name)}</b><div class="hint">${esc(l.name)} · buổi ${l.sessionsDone}/${l.sessionsTotal}</div></span><span class="amt"><button class="btn sm" data-opencus="${x.customerId}">Mở hồ sơ</button></span></div>`).join("") || `<div class="hint">Không có.</div>`}</div></div>`);
+      const today = new Map(S.s.appointments.filter(x => x.date === t).map(x => [x.customerId, x.status]));
+      const rank = x => today.get(x.customerId) === "ARRIVED" ? 0 : today.has(x.customerId) ? 1 : 2;
+      const all = S.s.treatments.filter(x => x.status === "OPEN").flatMap(x => x.lines.filter(l => l.sessionsDone < l.sessionsTotal).map(l => ({ x, l }))).sort((p, q) => rank(p.x) - rank(q.x) || q.x.openedAt.localeCompare(p.x.openedAt));
+      const list = all.slice(0, ui.todayAll ? 60 : 10);
+      cards.push(`<div class="card"><h3>Dịch vụ còn buổi ${pill("mute", all.length)}</h3><p class="hint" style="margin:0 0 6px">Khách đã đến hôm nay xếp đầu, rồi khách có hẹn hôm nay, rồi hồ sơ mới nhất.</p><div class="list">${list.map(({ x, l }) => { const cu = S.customer(x.customerId), st = today.get(x.customerId); return `<div class="li" style="flex-wrap:wrap"><span style="flex:1;min-width:170px"><b>${esc(cu.name)}</b> ${st === "ARRIVED" ? pill("pos", "Đã đến") : st ? pill("pend", "Có hẹn") : ""}${cu.allergies ? ` ${pill("neg", "Dị ứng")}` : ""}<div class="hint">${esc(l.name)} · buổi ${l.sessionsDone}/${l.sessionsTotal}</div></span><span class="row" style="gap:6px">${S.can("session") ? `<button class="btn sm pri" data-session="${x.id}" data-line="${l.id}">Ghi buổi ${l.sessionsDone + 1}</button>` : ""}<button class="btn sm" data-opencus="${x.customerId}">Hồ sơ</button></span></div>`; }).join("") || `<div class="hint">Không có.</div>`}</div>${all.length > list.length ? `<button class="btn sm" data-todayall="1" style="margin-top:8px">Xem tất cả ${all.length}</button>` : ""}</div>`);
     }
-    if (FRONT.includes(r)) { const c = S.careList().slice(0, 6); cards.push(`<div class="card"><h3>Cần gọi chăm sóc ${pill(c.length ? "pend" : "mute", S.careList().length)}</h3><div class="list">${c.map(x => `<div class="li"><span><b>${esc(S.customer(x.customerId).name)}</b><div class="hint">${esc(x.label)}</div></span><span class="amt"><a class="btn sm" href="#cham-soc">Gọi</a></span></div>`).join("") || `<div class="hint">Không có.</div>`}</div></div>`); }
+    if (FRONT.includes(r)) { const L = S.careList().filter(x => !limited() || vis.has(x.customerId)), c = L.slice(0, 6); cards.push(`<div class="card"><h3>Cần gọi chăm sóc ${pill(c.length ? "pend" : "mute", L.length)}</h3><div class="list">${c.map(x => `<div class="li"><span><b>${esc(S.customer(x.customerId).name)}</b><div class="hint">${esc(x.label)}</div></span><span class="amt"><a class="btn sm" href="#cham-soc">Gọi</a></span></div>`).join("") || `<div class="hint">Không có.</div>`}</div></div>`); }
     if (r === "ADMIN") {
-      const pend = S.s.requests.filter(x => x.status === "PENDING"), lots = S.s.batches.filter(x => x.status === "CHO_DUYET"), runs = S.s.payrollRuns.filter(x => x.status === "DRAFT");
-      cards.push(`<div class="card"><h3>Chờ Ban giám đốc duyệt ${pill(pend.length + lots.length + runs.length ? "pend" : "mute", pend.length + lots.length + runs.length)}</h3><div class="list">
-        ${pend.map(x => `<div class="li"><span>Đề nghị chi ${esc(x.code)} · ${esc(x.payee)}<div class="hint">Lập bởi ${esc(sname(x.createdBy))}</div></span><span class="amt">${vndH(x.amount)} <a class="btn sm" href="#thu-chi">Xem</a></span></div>`).join("")}
+      const pend = S.s.requests.filter(x => x.status === "PENDING"), lots = S.s.batches.filter(x => x.status === "CHO_DUYET"), runs = S.s.payrollRuns.filter(x => x.status === "DRAFT"), n = pend.length + lots.length + runs.length;
+      cards.push(`<div class="card"><h3>Chờ Ban giám đốc duyệt ${pill(n ? "pend" : "mute", n)}</h3><div class="list">
+        ${pend.map(x => `<div class="li"><span>${x.category === "HOAN_TIEN" ? "Hoàn tiền" : "Đề nghị chi"} ${esc(x.code)} · ${esc(x.payee)}<div class="hint">Lập bởi ${esc(sname(x.createdBy))}</div></span><span class="amt">${vndH(x.amount)} <a class="btn sm" href="#thu-chi">Xem</a></span></div>`).join("")}
         ${lots.map(x => `<div class="li"><span>Lô hoa hồng ${esc(x.code)}<div class="hint">Lập bởi ${esc(sname(x.createdBy))}</div></span><span class="amt">${vndH(x.total)} <a class="btn sm" href="#hoa-hong">Xem</a></span></div>`).join("")}
         ${runs.map(x => `<div class="li"><span>Bảng lương ${vnMonth(x.month)} ${esc(x.code)}<div class="hint">Lập bởi ${esc(sname(x.createdBy))}</div></span><span class="amt">${vndH(x.total)} <a class="btn sm" href="#luong">Xem</a></span></div>`).join("")}
-        ${pend.length + lots.length + runs.length ? "" : `<div class="hint">Không có việc chờ duyệt.</div>`}</div></div>`);
+        ${n ? "" : `<div class="hint">Không có việc chờ duyệt.</div>`}</div></div>`);
     }
     if (r === "MANAGER") {
-      const ap = S.s.requests.filter(x => x.status === "APPROVED" && !(x.source && x.source.type === "BATCH")), el = S.s.commissions.filter(e => e.state === "ELIGIBLE" && !e.batchId).length, pnd = S.s.commissions.filter(e => e.state === "PENDING" && e.period < monthOf(t)).length;
+      const pm = prevMonth(monthOf(t)), ap = S.s.requests.filter(x => x.status === "APPROVED" && !(x.source && x.source.type === "BATCH")), el = S.s.commissions.filter(e => e.state === "ELIGIBLE" && !e.batchId).length, pnd = S.s.commissions.filter(e => e.state === "PENDING" && e.period < monthOf(t)).length, pr = S.s.requests.filter(x => x.status === "PENDING").length, draft = S.s.payrollRuns.filter(x => x.status === "DRAFT").length;
       cards.push(`<div class="card"><h3>Việc kế toán</h3><div class="list">
         ${ap.map(x => `<div class="li"><span>Đã duyệt, chờ chi: ${esc(x.code)} · ${esc(x.payee)}</span><span class="amt">${vndH(x.amount)} <a class="btn sm" href="#thu-chi">Chi</a></span></div>`).join("")}
+        ${pr ? `<div class="li"><span>${pr} chứng từ đang chờ Ban giám đốc duyệt</span><span class="amt"><a class="btn sm" href="#thu-chi">Xem</a></span></div>` : ""}
         ${pnd ? `<div class="li"><span>${pnd} khoản hoa hồng kỳ trước chưa đối soát</span><span class="amt"><a class="btn sm" href="#hoa-hong">Đối soát</a></span></div>` : ""}
         ${el ? `<div class="li"><span>${el} khoản hoa hồng khả dụng chưa vào lô</span><span class="amt"><a class="btn sm" href="#hoa-hong">Lập lô</a></span></div>` : ""}
-        ${!S.s.payrollRuns.some(x => x.month === prevMonth(monthOf(t))) ? `<div class="li"><span>Chưa lập bảng lương ${vnMonth(prevMonth(monthOf(t)))}</span><span class="amt"><a class="btn sm" href="#luong">Lập</a></span></div>` : ""}
+        ${draft ? `<div class="li"><span>${draft} bảng lương nháp chờ duyệt</span><span class="amt"><a class="btn sm" href="#luong">Xem</a></span></div>` : ""}
+        ${!S.s.payrollRuns.some(x => x.month === pm && x.status !== "REJECTED") ? `<div class="li"><span>Chưa lập bảng lương ${vnMonth(pm)}</span><span class="amt"><a class="btn sm" href="#luong">Lập</a></span></div>` : ""}
+        ${!S.isClosed(pm) ? `<div class="li"><span>Tháng ${vnMonth(pm)} chưa chốt sổ</span><span class="amt"><a class="btn sm" href="#thu-chi">Xem</a></span></div>` : ""}
       </div></div>`);
     }
     if (r === "SHAREHOLDER" || r === "MEDIA") cards.push(`<div class="card"><h3>Lối tắt</h3><div class="row">${r === "SHAREHOLDER" ? `<a class="btn" href="#tong-quan">Tổng quan kinh doanh</a><a class="btn" href="#thu-chi">Thu chi</a>` : ""}<a class="btn" href="#hieu-suat">Hiệu suất</a></div><p class="hint">${r === "SHAREHOLDER" ? "Bạn xem được toàn bộ số liệu, không có nút sửa." : "Bạn xem thu nhập của mình ở mục Hiệu suất."}</p></div>`);
@@ -128,40 +157,39 @@
   function apptRow(x) {
     const c = S.customer(x.customerId); const can = S.can("apptStatus");
     const acts = x.status === "BOOKED" ? (can ? `<button class="btn sm pri" data-appt="${x.id}" data-st="ARRIVED">Đã đến</button><button class="btn sm" data-appt="${x.id}" data-st="NO_SHOW">Không đến</button>` : "") : x.status === "ARRIVED" ? (can ? `<button class="btn sm pri" data-appt="${x.id}" data-st="DONE">Hoàn thành</button>` : "") : "";
-    return `<div class="li" style="flex-wrap:wrap"><span class="num" style="font-weight:800;width:46px">${x.time}</span><span style="flex:1;min-width:160px"><b>${esc(c.name)}</b> <span class="hint">${maskPhone(c.last5)}</span><div class="hint">${APPT_TY[x.type] || ""}${x.staffId ? " · " + esc(sname(x.staffId)) : ""}${x.note ? " · " + esc(x.note) : ""}</div></span><span class="row" style="gap:6px">${pill(...APPT_ST[x.status])}${acts}<button class="btn sm" data-opencus="${c.id}">Hồ sơ</button></span></div>`;
+    return `<div class="li" style="flex-wrap:wrap"><span class="num" style="font-weight:800;width:46px">${x.time}</span><span style="flex:1;min-width:160px"><b>${esc(c.name)}</b> <span class="hint">${maskPhone(c.last5)}</span>${c.allergies ? ` ${pill("neg", "Dị ứng")}` : ""}<div class="hint">${APPT_TY[x.type] || ""}${x.staffId ? " · " + esc(sname(x.staffId)) : ""}${x.note ? " · " + esc(x.note) : ""}</div></span><span class="row" style="gap:6px">${pill(...APPT_ST[x.status])}${acts}<button class="btn sm" data-opencus="${c.id}">Hồ sơ</button></span></div>`;
   }
-
   // =================== LỊCH HẸN ===================
   function viewAppts() {
-    const d = ui.apptDate || S.today; const list = S.s.appointments.filter(x => x.date === d).sort((a, b) => a.time.localeCompare(b.time));
+    const d = ui.apptDate || S.today, vis = visSet(); const list = S.s.appointments.filter(x => x.date === d && (!limited() || vis.has(x.customerId))).sort((a, b) => a.time.localeCompare(b.time));
     const cs = S.visibleCustomers();
-    return `<div class="head"><h2>Lịch hẹn</h2><p>Đặt lịch, đánh dấu khách đã đến, hoàn thành.</p></div>
+    return `<div class="head"><h2>Lịch hẹn</h2><p>Đặt lịch, đánh dấu khách đã đến, hoàn thành. Giờ làm việc 07:00–20:00.</p></div>
     <div class="split"><div class="card stack"><h3>Đặt lịch mới</h3>${S.can("appt") ? `<form id="apptForm" class="stack">
-      <div class="fld"><label for="apCus">Khách hàng (gõ tên hoặc 5 số cuối)</label><input id="apCus" list="apCusList" autocomplete="off"><datalist id="apCusList">${cs.slice(-150).map(c => `<option value="${esc(c.name)} · ${c.last5} · ${c.code}"></option>`).join("")}</datalist></div>
-      <div class="row"><div class="fld"><label for="apDate">Ngày</label><input id="apDate" type="date" value="${d}"></div><div class="fld"><label for="apTime">Giờ</label><input id="apTime" type="time" value="09:00"></div></div>
+      <div class="fld"><label for="apCus">Khách hàng — gõ tên hoặc mã KH, rồi chọn trong danh sách</label><input id="apCus" list="apCusList" autocomplete="off"><datalist id="apCusList">${cs.slice().reverse().map(c => `<option value="${esc(c.name)} · ${maskPhone(c.last5)} · ${c.code}"></option>`).join("")}</datalist></div>
+      <div class="row"><div class="fld"><label for="apDate">Ngày</label><input id="apDate" type="date" value="${d < S.today ? S.today : d}" min="${S.today}"></div><div class="fld"><label for="apTime">Giờ</label><input id="apTime" type="time" value="09:00" min="07:00" max="20:00"></div></div>
       <div class="row"><div class="fld"><label for="apType">Loại</label><select id="apType"><option value="SERVICE">Làm dịch vụ</option><option value="FOLLOW_UP">Tái khám</option><option value="NEW">Khách mới tư vấn</option></select></div><div class="fld"><label for="apStaff">Bác sĩ</label><select id="apStaff"><option value="">— Chưa chọn —</option>${STAFF.filter(x => x.role === "DOCTOR").map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></div></div>
-      <div class="fld"><label for="apNote">Ghi chú</label><input id="apNote"></div>
+      <div class="fld"><label for="apNote">Ghi chú</label><input id="apNote" maxlength="200"></div>
       <div class="row"><button class="btn pri" type="submit">Đặt lịch</button></div></form>` : `<p class="hint">Vai trò này không đặt lịch.</p>`}</div>
     <div class="card"><h3>Ngày <input id="apView" type="date" value="${d}" style="border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:var(--card)"> ${pill("mute", list.length + " lịch")}</h3><div class="list">${list.map(apptRow).join("") || `<div class="hint">Không có lịch hẹn ngày này.</div>`}</div></div></div>`;
   }
-
   // =================== TIẾP NHẬN ===================
-  function viewIntake() {
+  function intakeResults() {
     const q = ui.tq.trim(); const found = q ? S.findCustomers(q).slice(0, 8) : [];
-    const pre = ui.intakePrefill || {};
-    return `<div class="head"><h2>Tiếp nhận khách</h2><p>Tìm khách cũ bằng tên hoặc 5 số cuối SĐT trước khi tạo mới, tránh trùng hồ sơ.</p></div>
-    <div class="grid g2"><div class="card stack"><h3>Tìm khách đã có</h3><div class="fld"><label for="tq">Tên hoặc 5 số cuối SĐT</label><input id="tq" value="${esc(ui.tq)}" autocomplete="off"></div>
-      <div class="list">${found.map(c => `<div class="li"><span><b>${esc(c.name)}</b> <span class="hint">${maskPhone(c.last5)} · ${c.code}</span><div class="hint">${esc(CAT.SOURCES[c.source] || "")}${c.referrerPartnerId ? " · " + esc(S.partnerName(c.referrerPartnerId)) : ""}</div></span><span class="amt"><button class="btn sm pri" data-opencus="${c.id}">Mở hồ sơ</button></span></div>`).join("") || (q ? `<div class="hint">Không thấy khách nào — tạo hồ sơ mới bên cạnh.</div>` : "")}</div></div>
-    <div class="card" id="intakeBox"><h3>Hồ sơ khách mới</h3><form id="intakeForm" class="stack" autocomplete="off">
-      <div class="row"><div class="fld"><label for="inName">Họ tên</label><input id="inName" value="${esc(pre.name || "")}"></div><div class="fld" style="flex:0 1 140px"><label for="inL5">5 số cuối SĐT</label><input id="inL5" inputmode="numeric" maxlength="5" value="${esc(pre.l5 || "")}"></div></div>
-      <div class="row"><div class="fld"><label for="inGender">Giới tính</label><select id="inGender"><option value="F">Nữ</option><option value="M">Nam</option></select></div><div class="fld"><label for="inDob">Ngày sinh</label><input id="inDob" type="date"></div><div class="fld"><label for="inSkin">Loại da</label><select id="inSkin"><option value="">—</option>${CAT.SKIN.map(x => `<option>${x}</option>`).join("")}</select></div></div>
-      <div class="fld"><label>Vấn đề da</label><div class="chips">${CAT.CONCERNS.map(x => `<label><input type="checkbox" name="concern" value="${x}">${x}</label>`).join("")}</div></div>
-      <div class="fld"><label for="inAllergy">Dị ứng / chống chỉ định</label><input id="inAllergy"></div>
-      <div class="row"><div class="fld"><label for="inSource">Nguồn khách</label><select id="inSource">${Object.entries(CAT.SOURCES).map(([k, l]) => `<option value="${k}" ${pre.ref && k === "PARTNER" ? "selected" : ""}>${l}</option>`).join("")}</select></div><div class="fld"><label for="inRef">Mã đối tác giới thiệu (nếu có)</label><input id="inRef" style="text-transform:uppercase" value="${esc(pre.ref || "")}"><div id="inRefInfo" class="hint">${pre.ref && S.partnerByCode(pre.ref) ? `<span class="ok">✓ ${esc(S.partnerName(S.partnerByCode(pre.ref).id))}</span>` : "Ví dụ HP-2K7Q. Hệ thống hiện tên để xác nhận."}</div></div></div>
-      <label class="chk"><input type="checkbox" id="inConsent" ${pre.consent ? "checked" : ""}>Khách đồng ý cho trung tâm lưu và xử lý thông tin cá nhân để chăm sóc, điều trị</label>
-      <div class="row">${submitBtn("intake", "Tạo hồ sơ")}<button type="button" class="btn" data-sample-intake="1">Điền dữ liệu mẫu</button></div></form></div></div>`;
+    return found.map(c => `<div class="li"><span><b>${esc(c.name)}</b> <span class="hint">${maskPhone(c.last5)} · ${c.code}</span><div class="hint">${esc(CAT.SOURCES[c.source] || "")}${c.referrerPartnerId ? " · " + esc(S.partnerName(c.referrerPartnerId)) : ""}</div></span><span class="amt"><button class="btn sm pri" data-opencus="${c.id}">Mở hồ sơ</button></span></div>`).join("") || (q ? `<div class="hint">Không thấy khách nào — tạo hồ sơ mới bên cạnh. (Tìm được cả khi gõ không dấu.)</div>` : "");
   }
-
+  function viewIntake() {
+    const pre = ui.intakePrefill || {};
+    return `<div class="head"><h2>Tiếp nhận khách</h2><p>Tìm khách cũ trước khi tạo mới để tránh trùng hồ sơ.</p></div>
+    <div class="card" style="margin-bottom:14px"><div class="row"><div class="fld"><label for="tq">Tìm khách đã có — tên (có hoặc không dấu) hoặc 5 số cuối SĐT</label><input id="tq" value="${esc(ui.tq)}" autocomplete="off"></div></div><div class="list" id="tqResults" style="margin-top:6px">${intakeResults()}</div><div id="intakeDup"></div></div>
+    <div class="card" id="intakeBox"><h3>Hồ sơ khách mới</h3><form id="intakeForm" class="stack" autocomplete="off">
+      <div class="row"><div class="fld"><label for="inName">Họ tên</label><input id="inName" maxlength="60" value="${esc(pre.name || "")}"></div><div class="fld" style="flex:0 1 140px"><label for="inL5">5 số cuối SĐT</label><input id="inL5" inputmode="numeric" maxlength="5" value="${esc(pre.l5 || "")}"></div></div>
+      <div class="row"><div class="fld"><label for="inGender">Giới tính</label><select id="inGender"><option value="F">Nữ</option><option value="M">Nam</option></select></div><div class="fld"><label for="inDob">Ngày sinh</label><input id="inDob" type="date" max="${S.today}"></div><div class="fld"><label for="inSkin">Loại da</label><select id="inSkin"><option value="">—</option>${CAT.SKIN.map(x => `<option>${x}</option>`).join("")}</select></div></div>
+      <div class="fld"><label>Vấn đề da</label><div class="chips">${CAT.CONCERNS.map(x => `<label><input type="checkbox" name="concern" value="${x}">${x}</label>`).join("")}</div></div>
+      <div class="fld"><label for="inAllergy">Dị ứng / chống chỉ định</label><input id="inAllergy" maxlength="300"></div>
+      <div class="row"><div class="fld"><label for="inSource">Nguồn khách</label><select id="inSource">${Object.entries(CAT.SOURCES).map(([k, l]) => `<option value="${k}" ${pre.ref && k === "PARTNER" ? "selected" : ""}>${l}</option>`).join("")}</select></div><div class="fld"><label for="inRef">Mã đối tác giới thiệu (nếu có)</label><input id="inRef" style="text-transform:uppercase" value="${esc(pre.ref || "")}"><div id="inRefInfo" class="hint">${pre.ref && S.partnerByCode(pre.ref) ? `<span class="ok">✓ ${esc(S.partnerName(S.partnerByCode(pre.ref).id))}</span>` : "Ví dụ HP-2K7Q. Hệ thống hiện tên để xác nhận."}</div></div></div>
+      <label class="chk"><input type="checkbox" id="inConsent">Khách đồng ý cho trung tâm lưu và xử lý thông tin cá nhân để chăm sóc, điều trị (bắt buộc)</label>
+      <div class="row">${submitBtn("intake", "Tạo hồ sơ")}<button type="button" class="btn" data-sample-intake="1">Điền dữ liệu mẫu</button></div></form></div>`;
+  }
   // =================== HỒ SƠ KHÁCH HÀNG ===================
   function nextForCustomer(c) {
     const trs = S.s.treatments.filter(t => t.customerId === c.id && t.status === "OPEN");
@@ -172,14 +200,15 @@
   function viewCustomers() {
     const vis = S.visibleCustomers(); const q = ui.cq.trim().toLowerCase();
     const list = vis.filter(c => !q || c.name.toLowerCase().includes(q) || c.last5.endsWith(q) || c.code.toLowerCase().includes(q)).slice().reverse();
-    if (!ui.cusId || !vis.some(c => c.id === ui.cusId)) ui.cusId = list[0] ? list[0].id : null;
+    const outOfScope = ui.cusId && S.customer(ui.cusId) && !vis.some(c => c.id === ui.cusId);
+    if (!outOfScope && (!ui.cusId || !vis.some(c => c.id === ui.cusId))) ui.cusId = list[0] ? list[0].id : null;
     const shown = list.slice(0, ui.showAll ? 80 : 10);
     return `<div class="head"><h2>Hồ sơ khách hàng</h2>${S.scope().all || S.scope().frontDesk ? "" : pill("pend", "Bạn chỉ thấy khách " + S.scope().label.toLowerCase())}<p>Toàn bộ thông tin một khách: điều trị, thanh toán, gói, hành trình và nguồn gốc.</p></div>
     <div class="split"><div class="card"><h3>Khách ${pill("mute", list.length)}</h3><div class="fld" style="margin-bottom:8px"><label for="cq">Tìm tên, 5 số cuối SĐT, mã KH</label><input id="cq" value="${esc(ui.cq)}" autocomplete="off"></div>
       <div class="list">${shown.map(c => { const debt = S.s.treatments.filter(t => t.customerId === c.id).reduce((a, t) => a + S.sumTreatment(t).debt, 0);
         return `<button class="crow ${c.id === ui.cusId ? "on" : ""}" data-cus="${c.id}"><span><b>${esc(c.name)}</b> <span class="hint">${maskPhone(c.last5)}</span><span class="hint" style="display:block">${c.code} · ${esc(CAT.SOURCES[c.source] || "")}</span></span><span>${debt ? pill("neg", "Nợ " + short(debt)) : S.partnerOfCustomer(c.id) ? pill("gold", "Đối tác") : ""}</span></button>`; }).join("") || `<div class="hint">Không có khách.</div>`}</div>
       ${list.length > shown.length ? `<button class="btn sm" data-showall="1" style="margin-top:8px">Xem thêm ${list.length - shown.length}</button>` : ""}</div>
-    <div id="cusPanel">${ui.cusId ? customerPanel(S.customer(ui.cusId)) : `<div class="card hint">Chưa có khách trong phạm vi của bạn.</div>`}</div></div>`;
+    <div id="cusPanel">${outOfScope ? `<div class="card warnbox">Khách <b>${esc(ini(S.customer(ui.cusId).name))}</b> không thuộc phạm vi của bạn (${esc(S.scope().label.toLowerCase())}). Liên hệ lễ tân hoặc trưởng nhóm nếu cần.</div>` : ui.cusId ? customerPanel(S.customer(ui.cusId)) : `<div class="card hint">Chưa có khách trong phạm vi của bạn.</div>`}</div></div>`;
   }
   function chainHtml(c) {
     const ln = S.lineage(c.id);
@@ -205,34 +234,36 @@
       <div class="card"><h3>Lịch sử hẹn</h3><div class="list">${ap.map(a => `<div class="li"><span>${vnDate(a.date)} ${a.time} · ${APPT_TY[a.type]}</span><span class="amt">${pill(...APPT_ST[a.status])}</span></div>`).join("") || `<div class="hint">Chưa có.</div>`}</div></div>`; }
     return `<div class="stack"><div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start"><div style="min-width:0;flex:1"><div style="font-size:19px;font-weight:800">${esc(c.name)} <span class="hint" style="font-weight:500">${maskPhone(c.last5)}</span></div>
       <div class="hint">${c.code} · ${c.gender === "M" ? "Nam" : "Nữ"}${c.dob ? " · " + vnDate(c.dob) : ""} · ${esc(c.skinType || "Chưa ghi loại da")} · Đến lần đầu ${vnDate(c.createdAt)}</div>
-      <div class="chips" style="margin-top:6px">${(c.concerns || []).map(x => pill("mute", esc(x))).join("")}${own ? pill("gold", "Đối tác " + own.code) : ""}</div></div>
-      <div style="text-align:right">${chainHtml(c)}</div></div>${c.allergies ? `<div class="warnbox" style="margin-top:8px"><b>Dị ứng / chống chỉ định:</b> ${esc(c.allergies)}</div>` : ""}</div>
+      <div class="chips" style="margin-top:6px">${(c.concerns || []).map(x => pill("mute", esc(x))).join("")}${own ? pill("gold", "Đối tác " + own.code) : ""}</div></div></div>
+      <div style="margin-top:10px"><span class="hint" style="font-weight:700">Nguồn gốc:</span> ${chainHtml(c)}</div>
+      ${c.allergies ? `<div class="warnbox" style="margin-top:8px"><b>Dị ứng / chống chỉ định:</b> ${esc(c.allergies)}</div>` : ""}
+      ${["ADMIN", "DOCTOR"].includes(role()) ? `<details style="margin-top:8px"><summary class="hint" style="cursor:pointer">Cập nhật dị ứng / chống chỉ định</summary><div class="row" style="margin-top:6px"><div class="fld"><label for="alg">Nội dung</label><input id="alg" maxlength="300" value="${esc(c.allergies || "")}"></div><button class="btn sm" data-allergy="${c.id}">Lưu</button></div></details>` : ""}</div>
       <div class="tabs2">${tabs.map(([k, l]) => `<button data-custab="${k}" class="${ui.cusTab === k ? "on" : ""}">${l}</button>`).join("")}</div>${body}</div>`;
   }
   function treatmentCard(t) {
-    const sm = S.sumTreatment(t), pays = S.s.payments.filter(p => p.treatmentId === t.id), open = t.status === "OPEN";
-    const hideMoney = false;
+    const sm = S.sumTreatment(t), pays = S.s.payments.filter(p => p.treatmentId === t.id), open = t.status === "OPEN", cu = S.customer(t.customerId);
+    const pendRefund = S.s.requests.filter(r => r.source && r.source.type === "REFUND_TREATMENT" && pays.some(p => p.id === r.source.paymentId) && ["PENDING", "APPROVED"].includes(r.status));
+    const techOpts = l => `<select id="tech-${l.id}" aria-label="Người làm" style="border:1px solid var(--line);border-radius:8px;padding:4px;background:var(--card);max-width:160px">${role() === "TECH" ? `<option value="${S.actor().id}">${esc(S.actor().name)}</option>` : `${role() === "DOCTOR" ? `<option value="">Bác sĩ tự làm</option>` : ""}${STAFF.filter(x => x.role === "TECH").map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}`}</select>`;
     return `<div class="card" id="tr-${t.id}"><h3><span>Hồ sơ ${t.code} · ${vnDate(t.openedAt)} ${t.kind === "WALLET" ? pill("gold", "Quyền lợi gói") : ""}</span>${pill(open ? "pend" : "pos", open ? "Đang điều trị" : "Hoàn tất")}</h3>
       <div class="hint">Tư vấn: ${esc(sname(t.consultantId))} · Bác sĩ: ${esc(sname(t.doctorId))}</div>
-      <div class="tbl" style="margin-top:8px"><table><thead><tr><th>Dịch vụ</th><th class="r">Thành tiền</th><th>Buổi</th><th></th></tr></thead><tbody>
-      ${t.lines.map(l => `<tr><td>${esc(l.name)}${l.discount ? `<div class="hint">Giảm ${vnd(l.discount)}đ</div>` : ""}${l.walletEntryId ? `<div class="hint">Trừ ví ${vnd(l.listValue)}đ</div>` : ""}</td><td class="r">${vndH(l.finalPrice)}</td><td class="num">${l.sessionsDone}/${l.sessionsTotal}</td><td style="white-space:nowrap">${l.sessionsDone < l.sessionsTotal ? (S.can("session") ? `<select id="tech-${l.id}" style="border:1px solid var(--line);border-radius:8px;padding:4px;background:var(--card)">${STAFF.filter(x => x.role === "TECH").map(x => `<option value="${x.id}" ${x.id === S.actor().id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select> <button class="btn sm pri" data-session="${t.id}" data-line="${l.id}">Ghi buổi</button>` : btn("session", `data-session="${t.id}" data-line="${l.id}"`, "Ghi buổi", { sm: true, cls: "" })) : pill("pos", "Đủ buổi")}${!l.walletEntryId && !l.sessionsDone && S.can("treatLine") && open ? ` <button class="btn sm" data-rmline="${t.id}" data-line="${l.id}">Bỏ</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="4" class="hint">Chưa có dịch vụ.</td></tr>`}
-      </tbody></table></div>
-      ${open ? `<div class="row" style="margin-top:10px"><div class="fld" style="flex:2 1 220px"><label for="svc-${t.id}">Thêm dịch vụ</label><select id="svc-${t.id}">${CAT.GROUPS.map(([g, l]) => `<optgroup label="${esc(l)}">${CAT.SERVICES.filter(s => s.group === g).map(s => `<option value="${s.code}">${esc(s.name)} — ${vnd(s.price)}${s.unit}</option>`).join("")}</optgroup>`).join("")}</select></div><div class="fld" style="flex:0 1 80px"><label for="qty-${t.id}">SL</label><input id="qty-${t.id}" type="number" min="1" value="1"></div><div class="fld" style="flex:0 1 120px"><label for="disc-${t.id}">Giảm giá</label><input id="disc-${t.id}" inputmode="numeric" value="0"></div>${btn("treatLine", `data-addline="${t.id}"`, "Thêm", { cls: "" })}</div>` : ""}
-      <div class="grid g3" style="margin-top:12px"><div><div class="hint">Tổng</div><b>${vndH(sm.total)}</b></div><div><div class="hint">Đã thu</div><b>${vndH(sm.paid)}</b></div><div><div class="hint">Còn nợ</div><b style="color:${sm.debt ? "var(--neg)" : "inherit"}">${vndH(sm.debt)}</b></div></div>
-      ${sm.debt > 0 ? `<div class="row" style="margin-top:10px"><div class="fld"><label for="pay-${t.id}">Thu tiền</label><input id="pay-${t.id}" inputmode="numeric" value="${sm.debt}"></div><div class="fld" style="flex:0 1 150px"><label for="pm-${t.id}">Hình thức</label><select id="pm-${t.id}"><option value="CASH">Tiền mặt</option><option value="TRANSFER">Chuyển khoản</option><option value="CARD">Quẹt thẻ</option></select></div>${btn("pay", `data-pay="${t.id}"`, "Thu tiền")}</div>` : ""}
-      ${pays.length ? `<details style="margin-top:10px"><summary class="sumh">Khoản thu (${pays.length})</summary><div class="list" style="margin-top:6px">${pays.map(p => `<div class="li" style="flex-wrap:wrap"><span>${vnDate(p.at)} · <span class="mono">${p.code}</span> ${p.kind === "REFUND" ? pill("neg", "Hoàn tiền") : ""}<div class="hint">${esc(sname(p.by))}${p.reason ? " · " + esc(p.reason) : ""}</div></span><span class="amt">${vndH(p.amount)} <button class="btn sm" data-docpay="${p.id}">Phiếu ${p.amount < 0 ? "chi" : "thu"}</button>${p.kind === "PAYMENT" && S.can("refund") ? ` <button class="btn sm warn" data-refundform="${p.id}">Hoàn</button>` : ""}</span>${ui.refundFor === p.id ? `<div class="row" style="width:100%;margin-top:6px"><div class="fld"><label for="rfA">Số tiền hoàn</label><input id="rfA" inputmode="numeric" value="${p.amount}"></div><div class="fld"><label for="rfR">Lý do</label><input id="rfR"></div><button class="btn warn" data-refund="${p.id}">Xác nhận hoàn</button></div>` : ""}</div>`).join("")}</div></details>` : ""}
+      ${cu.allergies ? `<div class="warnbox" style="margin-top:6px"><b>Lưu ý dị ứng:</b> ${esc(cu.allergies)}</div>` : ""}
+      <div class="list" style="margin-top:8px">${t.lines.map(l => `<div class="li" style="flex-wrap:wrap"><span style="flex:1;min-width:180px"><b>${esc(l.name)}</b>${l.qty > 1 ? ` <span class="hint">×${l.qty}</span>` : ""}${l.discount ? `<div class="hint">Giảm ${vnd(l.discount)}đ</div>` : ""}${l.walletEntryId ? `<div class="hint">Trừ ví ${vnd(l.listValue)}đ</div>` : ""}${l.sessionsTotal ? `<div class="hint">Buổi <b class="num">${l.sessionsDone}/${l.sessionsTotal}</b></div>` : ""}</span>
+        <span class="row" style="gap:6px;align-items:center"><b class="num">${vnd(l.finalPrice)}đ</b>${l.sessionsTotal ? (l.sessionsDone < l.sessionsTotal ? (S.can("session") ? `${techOpts(l)}<button class="btn sm pri" data-session="${t.id}" data-line="${l.id}">Ghi buổi ${l.sessionsDone + 1}</button>` : (role() === "SHAREHOLDER" ? "" : btn("session", `data-session="${t.id}" data-line="${l.id}"`, "Ghi buổi", { sm: true, cls: "" }))) : pill("pos", "Đủ buổi")) : ""}${!l.walletEntryId && !l.adjustment && !l.sessionsDone && S.can("treatLine") && open && sm.total - l.finalPrice >= sm.paid ? `<button class="btn sm" data-rmline="${t.id}" data-line="${l.id}">Bỏ</button>` : ""}</span></div>`).join("") || `<div class="hint">Chưa có dịch vụ.</div>`}</div>
+      ${open && S.can("treatLine") ? `<div class="row" style="margin-top:10px"><div class="fld" style="flex:2 1 220px"><label for="svc-${t.id}">Thêm dịch vụ</label><select id="svc-${t.id}">${CAT.GROUPS.map(([g, l]) => `<optgroup label="${esc(l)}">${CAT.SERVICES.filter(s => s.group === g).map(s => `<option value="${s.code}">${esc(s.name)} — ${vnd(s.price)}${s.unit}</option>`).join("")}</optgroup>`).join("")}</select></div><div class="fld" style="flex:0 1 80px"><label for="qty-${t.id}">SL</label><input id="qty-${t.id}" inputmode="numeric" value="1"></div>${role() !== "DOCTOR" ? `<div class="fld" style="flex:0 1 130px"><label for="disc-${t.id}">Giảm giá (đ)</label><input id="disc-${t.id}" inputmode="numeric" value="0"></div>` : ""}<button class="btn" data-addline="${t.id}">Thêm</button></div>` : ""}
+      <div class="grid g3" style="margin-top:12px"><div><div class="hint">Tổng</div><b>${vndH(sm.total)}</b></div><div><div class="hint">Đã thu (ròng)</div><b>${vndH(sm.paid)}</b></div><div><div class="hint">Còn nợ</div><b style="color:${sm.debt ? "var(--neg)" : "inherit"}">${vndH(sm.debt)}</b></div></div>
+      ${sm.debt > 0 ? (S.can("pay") ? `<div class="row" style="margin-top:10px"><div class="fld"><label for="pay-${t.id}">Thu tiền (còn nợ ${vnd(sm.debt)}đ)</label><input id="pay-${t.id}" inputmode="numeric" placeholder="Nhập số tiền"></div><div class="fld" style="flex:0 1 150px"><label for="pm-${t.id}">Hình thức</label><select id="pm-${t.id}"><option value="CASH">Tiền mặt</option><option value="TRANSFER">Chuyển khoản</option><option value="CARD">Quẹt thẻ</option></select></div><button class="btn pri" data-pay="${t.id}" data-nonce="${nonce()}">Thu tiền</button></div>` : role() === "SHAREHOLDER" ? "" : `<div class="row" style="margin-top:10px">${btn("pay", "", "Thu tiền", { cls: "" })}</div>`) : ""}
+      ${pendRefund.length ? `<div class="hl-box" style="margin-top:8px">Đang chờ chi hoàn tiền: ${pendRefund.map(r => `${r.code} · ${vnd(r.amount)}đ (${r.status === "PENDING" ? "chờ duyệt" : "đã duyệt, chờ chi"})`).join("; ")}</div>` : ""}
+      ${pays.length ? `<details style="margin-top:10px"><summary class="sumh">Khoản thu (${pays.length})</summary><div class="list" style="margin-top:6px">${pays.map(p => `<div class="li" style="flex-wrap:wrap"><span>${vnDate(p.at)} · <span class="mono">${p.code}</span> ${p.kind === "REFUND" ? pill("neg", "Hoàn tiền") : ""}<div class="hint">${esc(sname(p.by))}${p.reason ? " · " + esc(p.reason) : ""}</div></span><span class="amt">${vndH(p.amount)} <button class="btn sm" data-docpay="${p.id}">Phiếu ${p.amount < 0 ? "chi" : "thu"}</button>${p.kind === "PAYMENT" && S.can("refund") ? ` <button class="btn sm warn" data-refundform="${p.id}">Đề nghị hoàn</button>` : ""}</span>${ui.refundFor === p.id ? `<div class="row" style="width:100%;margin-top:6px"><div class="fld"><label for="rfA">Số tiền hoàn</label><input id="rfA" inputmode="numeric" placeholder="Tối đa ${vnd(p.amount)}"></div><div class="fld"><label for="rfR">Lý do</label><input id="rfR" maxlength="200"></div><button class="btn warn" data-refund="${p.id}">Lập đề nghị hoàn tiền</button></div><p class="hint" style="width:100%;margin:4px 0 0">Tiền chỉ ra khỏi quỹ sau khi Ban giám đốc duyệt và kế toán ghi đã chi. Giá trị dịch vụ được điều chỉnh giảm tương ứng nên khách không bị tính nợ.</p>` : ""}</div>`).join("")}</div></details>` : ""}
       <div class="row" style="margin-top:10px"><button class="btn sm" data-docconsent="${t.id}">Phiếu đồng ý điều trị</button></div></div>`;
   }
-
   // =================== CHĂM SÓC ===================
   function viewCare() {
-    const L = S.careList(); const logs = S.s.careLogs.slice().reverse().slice(0, 15);
+    const vis = visSet(); const L = S.careList().filter(x => !limited() || vis.has(x.customerId)); const logs = S.s.careLogs.filter(l => !limited() || vis.has(l.customerId)).slice().reverse().slice(0, 15);
     const KL = { AFTERCARE: ["pos", "Sau điều trị"], DEBT: ["neg", "Công nợ"], EXPIRY: ["pend", "Gói sắp hết hạn"] };
     return `<div class="head"><h2>Chăm sóc khách</h2><p>Danh sách tự sinh: hỏi thăm 3–10 ngày sau buổi điều trị, nhắc công nợ, nhắc gói sắp hết hạn. Ghi lại cuộc gọi thì khách rời danh sách 14 ngày.</p></div>
-    <div class="grid g2"><div class="card"><h3>Cần gọi ${pill(L.length ? "pend" : "mute", L.length)}</h3><div class="list">${L.slice(0, 25).map((x, i) => { const c = S.customer(x.customerId); return `<div class="li" style="flex-wrap:wrap"><span style="flex:1;min-width:180px">${pill(...KL[x.kind])} <b>${esc(c.name)}</b> <span class="hint">${maskPhone(c.last5)}</span><div class="hint">${esc(x.label)}</div></span><span class="row" style="gap:6px;width:100%"><input id="care-${i}" placeholder="Nội dung đã trao đổi" style="flex:1;min-width:150px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--card)"><button class="btn sm pri" data-care="${i}">Đã gọi</button><button class="btn sm" data-opencus="${c.id}">Hồ sơ</button></span></div>`; }).join("") || `<div class="hint">Không có ai cần gọi.</div>`}</div></div>
+    <div class="grid g2"><div class="card"><h3>Cần gọi ${pill(L.length ? "pend" : "mute", L.length)}</h3><div class="list">${L.slice(0, ui.careAll ? 200 : 25).map(x => { const c = S.customer(x.customerId), k = `${x.customerId}-${x.kind}`; return `<div class="li" style="flex-wrap:wrap"><span style="flex:1;min-width:180px">${pill(...KL[x.kind])} <b>${esc(c.name)}</b> <span class="hint">${maskPhone(c.last5)}</span><div class="hint">${esc(x.label)}</div></span><span class="row" style="gap:6px;width:100%"><input id="care-${k}" data-keep="1" placeholder="Nội dung đã trao đổi" maxlength="200" style="flex:1;min-width:150px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--card)"><button class="btn sm pri" data-care="${x.customerId}" data-kind="${x.kind}">Đã gọi</button><button class="btn sm" data-opencus="${c.id}">Hồ sơ</button></span></div>`; }).join("") || `<div class="hint">Không có ai cần gọi.</div>`}</div>${L.length > 25 && !ui.careAll ? `<button class="btn sm" data-careall="1" style="margin-top:8px">Xem tất cả ${L.length}</button>` : ""}</div>
     <div class="card"><h3>Đã chăm sóc gần đây</h3><div class="list">${logs.map(l => `<div class="li"><span><b>${esc(S.customer(l.customerId).name)}</b><div class="hint">${esc(l.note)}</div></span><span class="amt hint">${vnDate(l.at)}<div>${esc(sname(l.by))}</div></span></div>`).join("") || `<div class="hint">Chưa có.</div>`}</div></div></div>`;
   }
-
   // =================== GÓI 15 TRIỆU ===================
   function statusPill(c) { const m = { SIGNED: ["pend", "Đã ký · chưa thu đủ"], ACTIVE: ["pos", "Đang hiệu lực"], CONSUMED: ["mute", "Đã dùng hết"], EXPIRED: ["neg", "Hết hạn"], TERMINATED: ["neg", "Chấm dứt"], CANCELLED: ["neg", "Đã huỷ"] }[c.status]; return pill(m[0], m[1]); }
   function nextStep(c) {
@@ -257,6 +288,8 @@
       ${preCus ? `<div class="okbox">Bán cho: <b>${esc(preCus.name)}</b> (${preCus.code})${preCus.referrerPartnerId ? ` · người giới thiệu: ${esc(S.partnerName(preCus.referrerPartnerId))}` : ""}<input type="hidden" id="sCus" value="${preCus.id}"></div>` : `<div class="row"><div class="fld"><label for="sName">Họ tên người mua</label><input id="sName" value="${esc(pre.name || "")}"></div><div class="fld" style="flex:0 1 130px"><label for="sL5">5 số cuối SĐT</label><input id="sL5" inputmode="numeric" maxlength="5" value="${esc(pre.l5 || "")}"></div></div>`}
       <div class="row"><div class="fld"><label for="sRef">Mã đối tác giới thiệu</label><input id="sRef" style="text-transform:uppercase" value="${esc(pre.ref || "")}"><div id="refInfo" class="hint">${pre.ref && S.partnerByCode(pre.ref) ? `<span class="ok">✓ ${esc(S.partnerName(S.partnerByCode(pre.ref).id))}</span>` : "Ví dụ HP-2K7Q (chị Hạnh)."}</div></div><div class="fld" style="flex:0 1 130px"><label for="sPin">PIN khách đặt (6 số)</label><input id="sPin" inputmode="numeric" maxlength="6" value="${esc(pre.pin || "")}"></div></div>
       <div class="fld"><label for="sPay">Thu lần này</label><select id="sPay"><option value="15000000">Thu đủ 15.000.000đ</option><option value="10000000">Thu trước 10.000.000đ</option><option value="5000000">Thu trước 5.000.000đ</option><option value="0">Chưa thu</option></select></div>
+      ${preCus ? "" : `<label class="chk"><input type="checkbox" id="sConsent" ${pre.consent ? "checked" : ""}>Người mua đồng ý cho trung tâm lưu và xử lý thông tin cá nhân (bắt buộc với khách mới)</label>`}
+      <input type="hidden" id="sNonce" value="${nonce()}">
       <div class="row"><button class="btn pri" type="submit">Ký hợp đồng & thu tiền</button>${preCus ? `<button class="btn" type="button" data-clearsell="1">Bán cho khách khác</button>` : `<button class="btn" type="button" data-sample-sell="1">Điền dữ liệu mẫu</button>`}</div></form></details>` : `<div class="card hint">${role() === "DOCTOR" ? "Bác sĩ: hợp đồng có phiếu chờ chỉ định được xếp lên đầu." : "Chế độ chỉ xem."}</div>`}
       <div class="card"><h3>Hợp đồng ${pill("mute", filt.length)}</h3><div class="fld" style="margin-bottom:8px"><label for="q">Tìm tên, 5 số cuối, mã hợp đồng/đối tác</label><input id="q" value="${esc(ui.q)}" autocomplete="off"></div>
       <div class="list">${list.map(c => { const o = S.customer(c.customerId), wait = s.selections.some(z => z.contractId === c.id && z.lines.some(l => l.state === "CHO_BAC_SI")); return `<button class="crow ${c.id === ui.contractId ? "on" : ""}" data-contract="${c.id}"><span><b>${esc(o.name)}</b> <span class="hint">${maskPhone(o.last5)}</span><span class="mono hint" style="display:block">${c.code}</span></span><span style="text-align:right"><span class="num">${vnd(S.balance(c.id))}đ</span><span style="display:block">${wait ? pill("pend", "Chờ bác sĩ") : statusPill(c)}</span></span></button>`; }).join("") || `<div class="hint">Không có.</div>`}</div>
@@ -271,9 +304,12 @@
       <div class="hint"><span class="mono">${c.code}</span> · mã đối tác <span class="mono">${owner.code}</span> · bán bởi ${esc(sname(c.soldById))}</div>
       <div class="hint">Người giới thiệu: <b>${c.attributedPartnerId ? esc(S.partnerName(c.attributedPartnerId)) + " (" + S.partner(c.attributedPartnerId).code + ")" : "không có"}</b>${c.countsForKpi ? "" : " · " + pill("mute", "Gói thứ 2 — không tính KPI")}</div></div><span>${statusPill(c)}</span></div>
       <div class="grid g3" style="margin-top:12px"><div><div class="hint">Ví quyền lợi</div><div style="font-size:21px;font-weight:800">${vndH(bal)}</div><div class="prog"><i style="width:${bal / ENTITLEMENT * 100}%"></i></div><div class="hint">${c.expiresAt ? "Hạn " + vnDate(c.expiresAt) : "Chưa kích hoạt"}</div></div><div><div class="hint">Đã thu (ròng)</div><div style="font-size:21px;font-weight:800">${vndH(paid)}</div></div><div><div class="hint">Nếu dừng hôm nay, hoàn (F1)</div><div style="font-size:21px;font-weight:800">${vndH(c.status === "ACTIVE" ? F.refundUnused(bal) : 0)}</div>${c.refundDueAt ? pill("neg", "Hạn hoàn " + vnDate(c.refundDueAt)) : ""}</div></div>
+      ${(() => { const pp = s.pkgPayments.filter(x => x.contractId === c.id); return pp.length ? `<div class="list" style="margin-top:8px">${pp.map(x => `<div class="li"><span>${vnDate(x.at)} · <span class="mono">${x.code}</span> ${x.amount < 0 ? pill("neg", "Hoàn tiền") : ""}</span><span class="amt">${vndH(x.amount)} <button class="btn sm" data-docpkgpay="${x.id}">Phiếu ${x.amount < 0 ? "chi" : "thu"}</button></span></div>`).join("")}</div>` : ""; })()}
+      ${c.refundRequestId && !c.refundPaidAt ? `<div class="hl-box" style="margin-top:8px">Hoàn ${vnd(c.refundAmount || 0)}đ đang chờ Ban giám đốc duyệt và kế toán chi (hạn ${vnDate(c.refundDueAt)}).</div>` : ""}
+      ${c.pinLocked ? `<div class="warnbox" style="margin-top:8px">PIN đã bị khoá do nhập sai 5 lần. ${S.can("settings") ? `<span class="row" style="margin-top:6px"><input id="newPin" inputmode="numeric" maxlength="6" placeholder="PIN mới 6 số" style="border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--card)"><button class="btn sm" data-resetpin="${c.id}">Đặt lại PIN</button></span>` : "Ban giám đốc đặt lại PIN cùng khách."}</div>` : ""}
       <div class="row" style="margin-top:10px"><button class="btn sm" data-dockind="hd" data-id="${c.id}">Hợp đồng</button>${c.refundDueAt ? `<button class="btn sm" data-dockind="bb" data-id="${c.id}">Biên bản hoàn tiền</button>` : ""}<button class="btn sm" data-opencus="${cus.id}">Hồ sơ khách</button></div></div>
       <a class="next" href="#${ns.go}" data-goto="${ns.go}"><span class="k">Việc tiếp theo</span><b>${ns.t}</b><span class="hint">${ns.d}</span></a>
-      ${c.status === "SIGNED" ? `<div class="card" id="sec-thu"><h3>Thu tiền gói</h3><div class="row"><div class="fld"><label for="colAmt">Số tiền thu thêm</label><input id="colAmt" inputmode="numeric" value="${due}"></div>${btn("collect", `data-collect="${c.id}"`, "Thu tiền")}</div><div class="row" style="margin-top:8px">${btn("end", `data-cancel="${c.id}"`, "Huỷ, hoàn số đã thu", { cls: "warn", sm: true })}</div></div>` : ""}
+      ${c.status === "SIGNED" ? `<div class="card" id="sec-thu"><h3>Thu tiền gói</h3><div class="row"><div class="fld"><label for="colAmt">Số tiền thu thêm (còn ${vnd(due)}đ)</label><input id="colAmt" inputmode="numeric" placeholder="Nhập số tiền"></div><div class="fld" style="flex:0 1 150px"><label for="colM">Hình thức</label><select id="colM"><option value="CASH">Tiền mặt</option><option value="TRANSFER">Chuyển khoản</option><option value="CARD">Quẹt thẻ</option></select></div>${btn("collect", `data-collect="${c.id}" data-nonce="${nonce()}"`, "Thu tiền")}</div><div class="row" style="margin-top:8px">${btn("end", `data-cancel="${c.id}"`, "Huỷ, hoàn số đã thu", { cls: "warn", sm: true })}</div></div>` : ""}
       ${sels.length ? `<div class="card" id="sec-chidinh"><h3>Chỉ định & ghi nhận sử dụng</h3>${sels.map(x => selBlock(x, c, isDoc)).join('<div class="sep" style="margin:12px 0"></div>')}</div>` : ""}
       ${c.status === "ACTIVE" && !isDoc ? `<details class="card" id="sec-phieu" ${ns.go === "sec-phieu" ? "open" : ""}><summary class="sumh">Phiếu chọn của khách</summary><div style="margin-top:12px">${selForm(c)}</div></details>` : ""}
       <details class="card" id="sec-saoke"><summary class="sumh">Sao kê ví · ${ent.length} bút toán</summary><div class="tbl" style="margin-top:10px"><table><thead><tr><th>Ngày</th><th>Nội dung</th><th class="r">Phát sinh</th><th class="r">Số dư</th></tr></thead><tbody>${(() => { let run = 0; return ent.map(w => { run += w.amount; return `<tr><td>${vnDate(w.at)}</td><td>${esc(w.label)}</td><td class="r" style="color:${w.amount < 0 ? "var(--neg)" : "var(--pos)"}">${w.amount > 0 ? "+" : ""}${vndH(w.amount)}</td><td class="r">${vndH(run)}</td></tr>`; }).join("") || `<tr><td colspan="4" class="hint">Ví chưa kích hoạt.</td></tr>`; })()}</tbody></table></div>
@@ -286,7 +322,7 @@
     return `<form id="selForm" data-cid="${c.id}" class="stack">${has ? `<p class="hint" style="margin:0">Đã chọn gói chính. Số dư còn lại dùng cho dịch vụ da liễu.</p>` : `<div class="hint">A. Chọn 01 gói chính (giá gói 15.000.000đ — giá trị quyền lợi 30.000.000đ)</div>
       <div class="stack">${CAT.BUNDLES.map(b => `<label class="bundle" style="display:block"><span class="chk" style="padding:0"><input type="radio" name="bundle" value="${b.code}"><span><b>${b.code}. ${esc(b.name)}</b> — ${vnd(b.value)}đ ${b.note ? `<span class="hint">· ${esc(b.note)}</span>` : ""}${b.review ? `<span class="hint" style="display:block;color:var(--pend)">${esc(b.review)}</span>` : ""}</span></span>${b.opts.length ? `<span class="opts">${b.opts.map(o => `<label class="chk"><input type="checkbox" name="opt-${b.code}" value="${esc(o)}">${esc(o)}</label>`).join("")}</span>` : ""}</label>`).join("")}</div>`}
       <div class="row"><div class="fld"><label for="selB">B. Dịch vụ da liễu trừ ví (không bắt buộc)</label><select id="selB"><option value="">— Không chọn —</option>${CAT.GROUPS.map(([g, l]) => `<optgroup label="${esc(l)}">${CAT.SERVICES.filter(i => i.group === g).map(i => `<option value="${i.code}">${esc(i.name)} — ${vnd(i.price)}${i.unit}</option>`).join("")}</optgroup>`).join("")}</select></div><div class="fld" style="flex:0 1 80px"><label for="selQ">SL</label><input id="selQ" type="number" min="1" value="1"></div></div>
-      <div class="row">${submitBtn("select", "Lưu phiếu chọn")}<span class="hint">Đây là mong muốn của khách; bác sĩ chỉ định sau khi khám.</span></div></form>`;
+      <div class="row">${submitBtn("select", "Lưu phiếu chọn")}<span class="hint">Ví hiện còn ${vnd(S.balance(c.id))}đ. Phần vượt ví sẽ thu riêng khi khách đồng ý. Bác sĩ chỉ định sau khi khám.</span></div></form>`;
   }
   function selBlock(sel, c, isDoc) {
     const SP = { CHO_BAC_SI: ["pend", "Chờ bác sĩ"], DA_CHI_DINH: ["pos", "Đã chỉ định"], KHONG_CHI_DINH: ["mute", "Không chỉ định"], DA_DUNG: ["mute", "Đã sử dụng"] };
@@ -294,9 +330,9 @@
       ${sel.lines.map((l, i) => { const value = l.unitValue * l.qty, bal = S.balance(c.id), over = Math.max(0, value - bal);
         return `<div class="bundle ${l.state === "DA_CHI_DINH" ? "on" : ""}"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>${esc(l.name)}</b>${pill(...SP[l.state])}<span class="num" style="margin-left:auto">${vnd(l.unitValue)}đ × ${l.qty}</span></div>
         ${l.state === "CHO_BAC_SI" ? `<div class="row" style="margin-top:8px">${S.can("prescribe") ? `<div class="fld" style="flex:0 1 100px"><label for="rx-${sel.id}-${i}">Số lượng</label><input id="rx-${sel.id}-${i}" type="number" min="1" value="${l.qty}"></div>` : ""}${btn("prescribe", `data-rx="${sel.id}" data-i="${i}" data-ok="1"`, "Chỉ định", { sm: true })}${S.can("prescribe") ? `<button class="btn sm" data-rx="${sel.id}" data-i="${i}" data-ok="0">Không chỉ định</button>` : ""}</div>` : ""}
-        ${l.state === "DA_CHI_DINH" && !isDoc && c.status === "ACTIVE" ? `<div class="stack" style="margin-top:8px"><div>Trừ ví <b class="num">${vnd(Math.min(value, bal))}đ</b> → còn <b class="num">${vnd(Math.max(0, bal - value))}đ</b>${over > 0 ? ` · <span class="err">vượt ví ${vnd(over)}đ</span>` : ""}</div>
+        ${l.state === "DA_CHI_DINH" && !isDoc && ["ACTIVE", "CONSUMED"].includes(c.status) ? `<div class="stack" style="margin-top:8px"><div>Trừ ví <b class="num">${vnd(Math.min(value, bal))}đ</b> → còn <b class="num">${vnd(Math.max(0, bal - value))}đ</b>${over > 0 ? ` · <span class="err">vượt ví ${vnd(over)}đ</span>` : ""}</div>
           ${over > 0 ? `<label class="chk"><input type="checkbox" id="oc-${sel.id}-${i}">Khách đồng ý trước phần vượt ${vnd(over)}đ (thu riêng)</label><div class="fld" style="max-width:220px"><label for="op-${sel.id}-${i}">Thu phần vượt ngay</label><input id="op-${sel.id}-${i}" inputmode="numeric" value="${over}"></div>` : ""}
-          <div class="row"><div class="fld" style="flex:0 1 170px"><label for="pin-${sel.id}-${i}">Khách nhập PIN</label><input id="pin-${sel.id}-${i}" inputmode="numeric" maxlength="6"></div>${btn("redeem", `data-redeem="${sel.id}" data-i="${i}"`, "Ghi nhận sử dụng")}</div><div class="hint">Bản thử: PIN của khách này là <b class="mono">${esc(c.pin)}</b>. Ghi nhận sẽ tạo dòng 0đ trong hồ sơ điều trị để KTV ghi buổi.</div></div>` : ""}</div>`; }).join("")}</div>`;
+          <div class="row"><div class="fld" style="flex:0 1 170px"><label for="pin-${sel.id}-${i}">Khách nhập PIN</label><input id="pin-${sel.id}-${i}" inputmode="numeric" maxlength="6"></div>${btn("redeem", `data-redeem="${sel.id}" data-i="${i}" data-nonce="${nonce()}"`, "Ghi nhận sử dụng")}</div><div class="hint">Ghi nhận tạo dòng trong hồ sơ điều trị để KTV ghi buổi.${S.s.guide && S.s.guide.on ? ` Kịch bản thử: PIN mẫu là <b class="mono">246810</b>.` : " Khách tự nhập PIN — nhân viên không biết PIN."}</div></div>` : ""}</div>`; }).join("")}</div>`;
   }
 
   // =================== MẠNG LƯỚI & TRUY NGUỒN ===================
