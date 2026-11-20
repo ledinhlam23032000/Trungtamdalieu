@@ -249,6 +249,12 @@
       return p;
     }
     // Hoàn tiền dịch vụ = tiền ra khỏi quỹ → đi qua Giấy đề nghị thanh toán (người lập ≠ người duyệt ≠ người chi).
+    refundable(paymentId) {
+      const p = this.s.payments.find(x => x.id === paymentId && x.kind === "PAYMENT"); if (!p) return 0;
+      const done = -this.s.payments.filter(x => x.reversalOf === p.id).reduce((a, x) => a + x.amount, 0);
+      const pending = this.s.requests.filter(r => r.source && r.source.type === "REFUND_TREATMENT" && r.source.paymentId === p.id && ["PENDING", "APPROVED"].includes(r.status)).reduce((a, r) => a + r.amount, 0);
+      return Math.max(0, p.amount - done - pending);
+    }
     refundPayment(paymentId, amount, reason) {
       this.need("refund");
       const p = this.s.payments.find(x => x.id === paymentId && x.kind === "PAYMENT"); if (!p) throw new Error("Không thấy khoản thu.");
@@ -435,7 +441,7 @@
       c.pinFails = 0;
       const value = l.unitValue * l.qty, bal = this.balance(c.id);
       const fromWallet = Math.min(value, Math.max(0, bal)), over = value - fromWallet;
-      if (over > 0 && !overageConsent) throw new Error(`Vượt ví ${vnd(over)}đ — cần khách đồng ý trước khi làm (T16).`);
+      if (over > 0 && !overageConsent) throw new Error(`Vượt ví ${vnd(over)}đ — cần khách đồng ý trả phần vượt trước khi làm.`);
       const paidOver = over > 0 ? money(overagePaid == null || overagePaid === "" ? 0 : overagePaid, "Số thu phần vượt", 0, over) : 0;
       if (paidOver > 0) { this.need("pay"); if (this.usedNonce(nonce)) throw new Error("Khoản thu này đã ghi (chống bấm hai lần)."); }
       const sessions = l.bundle || l.code.startsWith("A") ? (l.sessions || 1) : (l.unit ? (l.sessions || 1) : (l.sessions || 1) * l.qty);

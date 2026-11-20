@@ -186,3 +186,18 @@ details[open]>.sumh::before{transform:rotate(45deg)}
 .ptabs button{font-size:12px}
 .psec h4{font-size:12px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* QA vòng 2 */
+.earn .v{white-space:nowrap;font-variant-numeric:tabular-nums}
+@media (max-width:400px){.earn .v{font-size:12.5px}}
+.guide:not(.off){position:sticky;top:calc(env(safe-area-inset-top,0px) + 66px);z-index:5;box-shadow:0 8px 24px -12px rgba(5,46,37,.35)}
+@media (max-width:640px){.guide:not(.off){top:calc(env(safe-area-inset-top,0px) + 6px);padding:10px 12px}.guide:not(.off) .hint{display:none}}
+.toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+@media print{
+  body.printing>*:not(#modal),body:has(#modal:not([hidden]))>*:not(#modal){display:none!important}
+  #modal{position:static!important;background:none!important;padding:0!important;display:block!important;overflow:visible!important}
+  .modal .bar,.modal .box>p{display:none!important}
+  .modal .box{padding:0!important;max-width:none!important;background:#fff!important}
+  .paper{border:0!important;padding:0!important;max-width:none!important}
+  @page{size:A4;margin:16mm}
+}
+.phone.bare{min-height:calc(100dvh - 120px);display:flex;flex-direction:column}.phone.bare .ptabs{margin-top:auto}
