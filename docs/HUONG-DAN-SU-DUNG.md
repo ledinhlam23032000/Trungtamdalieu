@@ -13,11 +13,11 @@ Khi một nút ghi **"→ chuyển sang [tên]"**, việc đó thuộc người 
 
 ## Tư vấn viên / Trưởng nhóm
 - Mở **hồ sơ điều trị** và thêm dịch vụ cho khách mình tư vấn.
-- Tư vấn viên chỉ thấy khách và số liệu của mình. Trưởng nhóm thấy cả nhóm.
+- Tư vấn viên chỉ thấy khách và số liệu của mình (kể cả khi gọi trực tiếp, hệ thống vẫn chặn khách ngoài phạm vi). Trưởng nhóm thấy cả nhóm.
 - **Hiệu suất**: doanh thu tư vấn theo tháng, kèm hoa hồng ước tính.
 
 ## Bác sĩ
-- **Việc hôm nay**: phiếu chọn chờ chỉ định. Bấm **Chỉ định** hoặc **Không chỉ định**.
+- **Việc hôm nay**: phiếu chọn chờ chỉ định. Bấm **Chỉ định** hoặc **Không chỉ định**. Số lượng chỉ định không được vượt số khách đã chọn (muốn tăng thì khách lập phiếu chọn mới).
 - Hồ sơ khách hiện cảnh báo dị ứng màu đỏ. Có **Phiếu đồng ý điều trị** in sẵn.
 - Bác sĩ không thấy con số hoa hồng ở bất kỳ đâu.
 
@@ -28,7 +28,10 @@ Khi một nút ghi **"→ chuyển sang [tên]"**, việc đó thuộc người 
 ## Kế toán
 - **Thu chi & chứng từ**: thu tự ghi từ phiếu thu. Chi đi theo luồng Giấy đề nghị thanh toán: lập → Ban giám đốc duyệt → **Ghi đã chi**. Cuối tháng Ban giám đốc **chốt sổ**; sau khi chốt, tháng đó không ghi thêm tiền được.
 - **Lương nhân sự**: lập bảng lương tháng trước (app tự tính). Điều chỉnh cần ghi lý do. Ban giám đốc duyệt xong thì kế toán **ghi đã chi lương**.
-- **Hoa hồng đối tác**: đầu tháng **đối soát** kỳ trước → **lập lô** → Ban giám đốc duyệt → **ghi đã chuyển**.
+- **Hoa hồng đối tác**: đầu tháng **đối soát** kỳ trước → **lập lô** → Ban giám đốc duyệt → **ghi đã chuyển**. Người duyệt không tự ghi chi.
+- **Hoàn tiền cho khách** (dịch vụ hoặc gói): bấm hoàn chỉ tạo **đề nghị hoàn tiền**. Ban giám đốc duyệt, rồi kế toán ghi đã chi thì tiền mới trừ khỏi sổ. Nếu đề nghị bị từ chối, hồ sơ gói hiện nút **Lập lại đề nghị hoàn** để khách không bị kẹt tiền.
+- Huỷ / chấm dứt hợp đồng có hộp xác nhận; nút "Hết hạn" chỉ hiện khi gói đã tới hạn.
+- Nếu hoàn tiền làm hoa hồng một nhân sự âm hơn thu nhập tháng đó, dòng lương ghi 0 và phần thiếu tự trừ vào kỳ sau.
 
 ## Ban giám đốc
 - **Việc hôm nay**: mọi thứ chờ duyệt (chứng từ, lô hoa hồng, bảng lương). Người lập không tự duyệt được.
