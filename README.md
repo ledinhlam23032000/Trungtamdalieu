@@ -31,3 +31,6 @@ Tham khảo cách tổ chức của app Trung tâm PTTM (ZenithTasks) nhưng g�
 - Chọn vai trò ở ô trên cùng thay cho đăng nhập; bản chính thức cần tài khoản và mật khẩu cho từng người.
 - Bảng giá dịch vụ da liễu là **mẫu**.
 - Thưởng tầng 2 khoá cho tới khi có giấy chứng nhận đăng ký bán hàng đa cấp và ý kiến luật sư.
+
+
+Báo cáo kiểm thử độc lập vòng 3 (5 nhóm: chuyên gia, y khoa, tuyến đầu, người dùng ngoài, kỹ thuật) và việc đã nâng cấp: [docs/KIEM-THU-VONG-3.md](docs/KIEM-THU-VONG-3.md).
