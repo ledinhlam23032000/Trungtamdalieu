@@ -1,0 +1,1332 @@
+<title>Trungtamdalieu</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+/* Bố cục: thanh trên (vai trò + ngày hệ thống) → khu làm việc 1 cột trên điện thoại, 12 cột trên máy tính.
+   Nội bộ: nền trung tính ánh lục; cổng đối tác: sub-brand Alliance xanh lục đậm + vàng ánh kim. */
+:root{
+  --a950:#052e25;--a900:#073b30;--a800:#0b4d3e;--a700:#0f6650;--a600:#13805f;--a100:#dcf2e9;--a50:#f0faf6;
+  --g500:#c9a24a;--g300:#e6cf8f;--g100:#f8efd6;
+  --bg:#f3f6f5;--card:#ffffff;--ink:#0f1a17;--mute:#5b6b66;--line:#e1e8e5;--soft:#eef3f1;
+  --pos:#15803d;--pend:#b45309;--neg:#b91c1c;--posbg:#e7f6ec;--pendbg:#fdf3e6;--negbg:#fdecec;
+  --accent:var(--a600);--on-accent:#fff;
+  --f-ui:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b1412;--card:#111d1a;--ink:#e6efec;--mute:#93a6a0;--line:#21322e;--soft:#16241f;
+  --pos:#4ade80;--pend:#f0b058;--neg:#f87171;--posbg:#12301f;--pendbg:#33240f;--negbg:#3a1616;
+  --a100:#173a30;--a50:#10241e;--g100:#3a3018;--accent:#2fa37c;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1412;--card:#111d1a;--ink:#e6efec;--mute:#93a6a0;--line:#21322e;--soft:#16241f;
+  --pos:#4ade80;--pend:#f0b058;--neg:#f87171;--posbg:#12301f;--pendbg:#33240f;--negbg:#3a1616;
+  --a100:#173a30;--a50:#10241e;--g100:#3a3018;--accent:#2fa37c;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--f-mono);font-size:12px}
+h1,h2,h3{margin:0;text-wrap:balance}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--g500);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--a950)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--a950);color:#fff;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px}
+.top-row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;max-width:1320px;margin:0 auto}
+.brand{display:flex;flex-direction:column;line-height:1.15}
+.brand b{font-size:15px;letter-spacing:.02em}
+.brand span{font-size:10px;letter-spacing:.2em;color:var(--g300);font-weight:700;text-transform:uppercase}
+.ctl{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.ctl label{font-size:11px;color:#b9cfc7}
+.ctl select{max-width:min(320px,calc(100vw - 32px))}
+.ctl select,.ctl input{background:#0d3d32;border:1px solid #2b5c4f;color:#fff;border-radius:8px;padding:5px 8px;font-size:13px}
+.tabs{display:flex;gap:4px;overflow-x:auto;max-width:1320px;margin:8px auto 0;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+@media (max-width:640px){
+  .top{position:static}
+  .top-row{gap:6px}
+  .ctl{margin-left:0;width:100%;display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:6px}
+  .ctl label{display:none}
+  .ctl select{max-width:none;width:100%}
+  .tabs{flex-wrap:wrap;overflow:visible}
+  .tabs a{padding:5px 10px;font-size:12px}
+}
+.tabs a{color:#cfe3dc;text-decoration:none;padding:7px 12px;border-radius:999px;font-size:13px;font-weight:600;white-space:nowrap}
+.tabs a.on{background:var(--g300);color:var(--a950)}
+.tabs a:hover:not(.on){background:#0f4d3f}
+
+main{max-width:1320px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+.banner{background:var(--g100);border:1px solid var(--g300);color:var(--ink);border-radius:12px;padding:10px 14px;font-size:13px;margin-bottom:18px}
+.banner b{color:var(--pend)}
+.head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-bottom:14px}
+.head h2{font-size:20px;font-weight:800;letter-spacing:-.01em}
+.head p{margin:0;color:var(--mute);font-size:13px;flex-basis:100%}
+.grid{display:grid;gap:14px}
+.g5{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.card h3{flex-wrap:wrap;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.kpi .v{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
+.kpi .v small{font-size:13px;font-weight:600;color:var(--mute)}
+.kpi .s{font-size:12px;color:var(--mute);margin-top:4px}
+.kpi.key{border-color:var(--g500);background:linear-gradient(180deg,var(--g100),var(--card) 70%)}
+.vnd small{font-size:.6em;font-weight:600;opacity:.65;margin-left:1px}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pill.pos{background:var(--posbg);color:var(--pos)}.pill.pend{background:var(--pendbg);color:var(--pend)}.pill.neg{background:var(--negbg);color:var(--neg)}.pill.mute{background:var(--soft);color:var(--mute)}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);text-align:left;font-weight:700;padding:9px 10px;background:var(--soft);white-space:nowrap}
+td{padding:9px 10px;border-top:1px solid var(--line);vertical-align:top}
+td.r,th.r{text-align:right}
+tr.click{cursor:pointer}tr.click:hover td{background:var(--a50)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;padding:8px 14px;font-weight:600;font-size:13px;border:1px solid var(--line);background:var(--card);cursor:pointer;min-height:38px}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.warn{color:var(--neg);border-color:var(--neg)}
+.btn.sm{padding:4px 10px;min-height:30px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 180px}
+.fld label{font-size:12px;color:var(--mute);font-weight:600}
+.fld input,.fld select,.fld textarea{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:8px 10px;min-height:38px;width:100%}
+.hint{font-size:12px;color:var(--mute)}
+.err{font-size:12px;color:var(--neg);font-weight:600}
+.ok{font-size:12px;color:var(--pos);font-weight:600}
+.stack{display:flex;flex-direction:column;gap:12px}
+.sep{height:1px;background:var(--line);margin:4px 0}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:6px 0}
+.chk input{margin-top:3px;width:16px;height:16px;accent-color:var(--accent)}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:4px 12px;padding:4px 0 4px 26px}
+.bundle{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.bundle.on{border-color:var(--accent);background:var(--a50)}
+.bars .bar{display:grid;grid-template-columns:150px 1fr 96px;gap:8px;align-items:center;font-size:12px;padding:3px 0}
+.bars .track{height:12px;background:var(--soft);border-radius:6px;overflow:hidden}
+.bars .track i{display:block;height:100%;background:var(--accent);border-radius:6px}
+.seats{display:flex;gap:6px;flex-wrap:wrap}
+.seat{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:11px;font-weight:800;border:2px solid var(--line);color:var(--mute)}
+.seat.taken{background:var(--a700);border-color:var(--a700);color:#fff}
+.seat.gold.taken{background:var(--g500);border-color:var(--g500);color:var(--a950)}
+.list{display:flex;flex-direction:column}
+.li{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px dashed var(--line);font-size:13px}
+.li:first-child{border-top:0}
+.li .amt{margin-left:auto;font-weight:700;white-space:nowrap}
+.prog{height:8px;border-radius:6px;background:var(--soft);overflow:hidden;margin-top:4px}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--a600),var(--g500))}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--a950);color:#fff;padding:10px 16px;border-radius:12px;font-size:13px;z-index:20;max-width:min(92vw,560px);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.toast.bad{background:#7f1d1d}
+.wf .bar{grid-template-columns:200px 1fr 110px}
+.wf .track{position:relative;height:16px}
+.wf .track i{position:absolute;top:0;height:100%}
+.neg-i{background:var(--neg)!important}.pos-i{background:var(--pos)!important}.tot-i{background:var(--g500)!important}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:14px}
+@media (max-width:900px){.split{grid-template-columns:minmax(0,1fr)}.bars .bar{grid-template-columns:110px 1fr 84px}.wf .bar{grid-template-columns:120px 1fr 92px}}
+
+/* ===== Cổng đối tác (điện thoại) ===== */
+.portal-wrap{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:min(390px,100%);background:var(--a50);border-radius:34px;border:9px solid #101614;overflow:hidden;box-shadow:0 30px 60px -20px rgba(5,46,37,.35)}
+.ph-top{padding:16px 18px 0;display:flex;justify-content:space-between;align-items:center}
+.ph-top .hi{font-size:12px;color:var(--mute)}.ph-top .nm{font-size:17px;font-weight:700}
+.wallet{margin:14px 16px 0;border-radius:20px;padding:18px;color:#fff;position:relative;overflow:hidden;background:radial-gradient(120% 140% at 100% 0%,#13805f 0%,#0b4d3e 45%,#052e25 100%);border:1px solid rgba(201,162,74,.55)}
+.wallet:after{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;border:1px solid rgba(230,207,143,.25)}
+.wallet .bd{font-size:10px;letter-spacing:.22em;font-weight:700;color:#e6cf8f}
+.wallet .wl{font-size:12px;opacity:.75;margin-top:12px}
+.wallet .wv{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.wallet .wv small{font-size:14px;font-weight:500;opacity:.6}
+.wallet .wbar{height:6px;border-radius:9px;background:rgba(255,255,255,.15);margin-top:12px;overflow:hidden}
+.wallet .wbar i{display:block;height:100%;background:linear-gradient(90deg,#e6cf8f,#c9a24a)}
+.wallet .wf2{display:flex;justify-content:space-between;font-size:11px;margin-top:10px;opacity:.9}
+.wallet .wf2 b{color:#e6cf8f;letter-spacing:.12em}
+.psec{margin:14px 16px 0;background:var(--card);border-radius:16px;border:1px solid var(--line);padding:14px}
+.psec h4{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.earn{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.earn div{border-radius:12px;padding:8px 10px;background:var(--a50);min-width:0}
+.earn .k{font-size:11px;color:var(--mute)}.earn .v{font-size:15px;font-weight:700}
+.earn .pe{background:var(--pendbg)}.earn .pe .v{color:var(--pend)}
+.earn .av .v{color:var(--pos)}
+.ptabs{display:flex;justify-content:space-around;background:var(--card);border-top:1px solid var(--line);padding:8px 0 12px;margin-top:16px}
+.ptabs button{background:none;border:0;font-size:11px;color:var(--mute);min-height:44px;min-width:56px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+.ptabs button.on{color:var(--accent);font-weight:700}
+.ptabs svg{width:20px;height:20px}
+.journey{position:relative;height:48px;margin-top:4px}
+.journey .tr{position:absolute;left:0;right:0;top:14px;height:4px;background:var(--line);border-radius:4px}
+.journey .fi{position:absolute;left:0;top:14px;height:4px;background:var(--a600);border-radius:4px}
+.journey .m{position:absolute;top:6px;width:20px;height:20px;border-radius:50%;background:var(--card);border:3px solid var(--line);transform:translateX(-50%)}
+.journey .m.me{border-color:var(--a600);background:var(--a600);box-shadow:0 0 0 5px var(--a100)}
+.journey .m.gd{border-color:var(--g500)}
+.journey .t{position:absolute;top:30px;font-size:10px;color:var(--mute);transform:translateX(-50%);white-space:nowrap}
+.rings{display:flex;gap:14px;align-items:center}
+.qrbox{background:#fff;padding:10px;border-radius:12px;display:inline-block}
+.side-note{flex:1 1 280px;min-width:0}
+
+.quay{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);grid-template-areas:"sell panel" "list panel";gap:14px;align-items:start}
+.qa-sell{grid-area:sell;min-width:0}.qa-panel{grid-area:panel;min-width:0}.qa-list{grid-area:list}
+@media (max-width:900px){.quay{grid-template-columns:minmax(0,1fr);grid-template-areas:"sell" "panel" "list"}}
+.sumh{cursor:pointer;font-weight:700;font-size:14px;list-style:none;display:flex;align-items:center;gap:8px}
+.sumh::-webkit-details-marker{display:none}
+.sumh::before{content:"";width:8px;height:8px;border-right:2px solid var(--mute);border-bottom:2px solid var(--mute);transform:rotate(-45deg);transition:transform .15s;flex:none}
+details[open]>.sumh::before{transform:rotate(45deg)}
+.crow{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:10px 6px;cursor:pointer;border-radius:8px}
+.crow:first-child{border-top:0}.crow:hover{background:var(--a50)}.crow.on{background:var(--a100)}
+.next{display:flex;flex-direction:column;gap:2px;text-decoration:none;color:inherit;border:2px solid var(--g500);background:var(--g100);border-radius:14px;padding:12px 16px}
+.next .k,.guide .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--pend)}
+.next b{font-size:16px}
+.guide{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:var(--card);border:2px solid var(--accent);border-radius:14px;padding:12px 16px;margin-bottom:16px}
+.guide>div:first-child{display:flex;flex-direction:column;gap:2px}
+.guide.off{border-style:dashed;border-color:var(--line);font-size:13px;color:var(--mute)}
+.gsteps{position:relative}.gsteps summary{list-style:none}.gsteps summary::-webkit-details-marker{display:none}
+.gsteps ol{position:absolute;right:0;top:110%;z-index:8;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px 10px 30px;margin:0;width:min(340px,80vw);font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.15)}
+.gsteps li{padding:3px 0;color:var(--mute)}.gsteps li.ok{color:var(--pos)}.gsteps li.cur{color:var(--ink);font-weight:700}
+.hl{outline:3px solid var(--g500)!important;outline-offset:3px;border-radius:12px;animation:pulse 1.6s ease-out 2}
+@keyframes pulse{0%{outline-color:var(--g500)}50%{outline-color:transparent}100%{outline-color:var(--g500)}}
+.hl-box{background:var(--pendbg);border-radius:10px;padding:10px 12px;font-size:13px}
+.subnav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.subnav a{padding:6px 12px;border-radius:999px;border:1px solid var(--line);text-decoration:none;color:var(--ink);font-size:13px;font-weight:600;background:var(--card)}
+.subnav a.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.tip{position:fixed;z-index:30;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:6px 9px;border-radius:8px;max-width:260px}
+</style>
+
+<header class="top">
+  <div class="top-row">
+    <div class="brand"><span>Hồng Phúc Alliance · bản chạy thử</span><b>Trungtamdalieu</b></div>
+    <div class="ctl">
+      <label for="actor">Bạn đang là:</label>
+      <select id="actor"></select>
+      <label for="today">Ngày hệ thống:</label>
+      <input id="today" type="date">
+    </div>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+</header>
+<main id="app"></main>
+<div id="toast" class="toast" hidden></div>
+<div id="tip" class="tip" hidden></div>
+
+<script>
+"use strict";
+/* =====================================================================================
+   BỘ MÁY NGHIỆP VỤ — toán tiền số nguyên VND, sổ cái chỉ ghi thêm, sửa sai bằng bút toán đảo.
+   Trang chạy thử: dữ liệu nằm trong trình duyệt của người xem (có nút "Khôi phục dữ liệu mẫu").
+   ===================================================================================== */
+const PKG_PRICE = 15000000, ENTITLEMENT = 30000000, REFERRAL_FLAT = 3000000;
+const ALLOW_SECOND_LEVEL = false; // D1 — hằng số trong code, không có nút bật trên giao diện
+const COST_PER_PACKAGE = 2000000; // D8 (cần xác nhận)
+const STORE_KEY = "trungtamdalieu-demo-v2";
+
+const STAFF = [
+  {id:"lam",name:"BS. Lê Đình Lam",role:"ADMIN",label:"Giám đốc chuyên môn & pháp lý",team:"BDH",pctBps:1000,fixed:0},
+  {id:"van",name:"Lê Vân",role:"ADMIN",label:"Founder — sản xuất & phân phối",team:"BDH",pctBps:1000,fixed:0},
+  {id:"quyen",name:"Nguyễn Quyên",role:"ADMIN",label:"Giám đốc đào tạo, chiến lược & vận hành",team:"BDH",pctBps:1000,fixed:0},
+  {id:"bich",name:"Bích",role:"MANAGER",label:"Kế toán tổng",team:"KT",pctBps:200,fixed:20000000},
+  {id:"baongoc",name:"Bảo Ngọc",role:"MEDIA",label:"Truyền thông — trợ lý điều phối",team:"TT",pctBps:200,fixed:8000000},
+  {id:"duong",name:"Dương",role:"MEDIA",label:"Truyền thông — quay dựng",team:"TT",pctBps:200,fixed:8000000},
+  {id:"tuan",name:"Tuấn",role:"MEDIA",label:"Truyền thông — quay dựng",team:"TT",pctBps:200,fixed:8000000},
+  {id:"ha",name:"Thu Hà",role:"LEAD",label:"Trưởng nhóm Tư vấn 1",team:"TV1"},
+  {id:"maianh",name:"Mai Anh",role:"CONSULTANT",label:"Tư vấn viên",team:"TV1"},
+  {id:"huy",name:"Đức Huy",role:"CONSULTANT",label:"Tư vấn viên",team:"TV1"},
+  {id:"bao",name:"Quốc Bảo",role:"LEAD",label:"Trưởng nhóm Tư vấn 2",team:"TV2"},
+  {id:"linh",name:"Khánh Linh",role:"CONSULTANT",label:"Tư vấn viên",team:"TV2"},
+  {id:"hoa",name:"Lễ tân Hoa",role:"RECEPTION",label:"Lễ tân",team:"QUAY"},
+  {id:"bsminh",name:"BS. Trần Minh",role:"DOCTOR",label:"Bác sĩ",team:"BS"},
+  {id:"codong",name:"Cổ đông bệnh viện",role:"SHAREHOLDER",label:"Chỉ xem, không sửa"},
+  {id:"kh-hanh",name:"Nguyễn Thị Hạnh",role:"PARTNER",label:"Khách mua gói (Đối tác)",partnerName:"Nguyễn Thị Hạnh"},
+  {id:"kh-binh",name:"Trần Văn Bình",role:"PARTNER",label:"Khách mua gói (Đối tác)",partnerName:"Trần Văn Bình"}
+];
+const TEAMS = {TV1:"Nhóm Tư vấn 1",TV2:"Nhóm Tư vấn 2",QUAY:"Quầy lễ tân"};
+const SELLERS = ["ha","maianh","huy","bao","linh","hoa"];
+const ROLE_LABEL = {ADMIN:"Ban điều hành",MANAGER:"Kế toán",LEAD:"Trưởng nhóm",CONSULTANT:"Tư vấn viên",RECEPTION:"Lễ tân",DOCTOR:"Bác sĩ",MEDIA:"Truyền thông",SHAREHOLDER:"Cổ đông bệnh viện (chỉ xem)",PARTNER:"Khách / Đối tác"};
+const SELLER_ROLES = ["ADMIN","RECEPTION","LEAD","CONSULTANT"];
+const CAN = {
+  sell:SELLER_ROLES, collect:[...SELLER_ROLES,"MANAGER"], select:SELLER_ROLES,
+  prescribe:["DOCTOR"], redeem:SELLER_ROLES, addon:SELLER_ROLES, end:["ADMIN","MANAGER"],
+  reconcile:["ADMIN","MANAGER"], batchCreate:["ADMIN","MANAGER"], batchApprove:["ADMIN"], batchPay:["ADMIN","MANAGER"],
+  activity:["ADMIN"], seeMoney:["ADMIN","MANAGER","RECEPTION","LEAD","CONSULTANT","SHAREHOLDER"]
+};
+// Trang nào vai trò nào được mở. Phạm vi dữ liệu trong trang xem scopeFor().
+const ALL_STAFF_ROLES = ["ADMIN","MANAGER","SHAREHOLDER","LEAD","CONSULTANT","RECEPTION","DOCTOR","MEDIA"];
+const ROUTE_ROLES = {
+  "dai-chi-huy":["ADMIN","MANAGER","SHAREHOLDER"], "hieu-suat":ALL_STAFF_ROLES,
+  "quay":["ADMIN","MANAGER","SHAREHOLDER","LEAD","CONSULTANT","RECEPTION","DOCTOR"], "ke-toan":["ADMIN","MANAGER","SHAREHOLDER"],
+  "cong-doi-tac":["ADMIN","MANAGER","SHAREHOLDER","PARTNER"], "suat":["ADMIN","MANAGER","SHAREHOLDER"], "mo-phong":["ADMIN","MANAGER","SHAREHOLDER"],
+  "kiem-thu":["ADMIN","MANAGER"], "danh-muc":[...ALL_STAFF_ROLES,"PARTNER"], "phan-quyen":ALL_STAFF_ROLES, "nhat-ky":["ADMIN","MANAGER"]
+};
+
+// ---------- danh mục v0 (phiếu chọn thẩm mỹ) ----------
+const BUNDLES = [
+  {code:"A01",name:"Xoá nhăn / thon gọn hàm",value:30000000,pickMax:3,opts:["Xoá nhăn trán","Xoá nhăn cau mày","Xoá nhăn ấn đường","Xoá nhăn đuôi mắt","Thon gọn hàm"],note:"Chọn tối đa 3/5"},
+  {code:"A02",name:"Giảm tiết mồ hôi nách / thon gọn vai",value:30000000,pickMax:1,opts:["Giảm tiết mồ hôi nách + tay","Thon gọn vai"],note:"Chọn 1 trong 2"},
+  {code:"A03",name:"HIFU nâng cơ — 2 buổi",value:30000000,opts:[]},
+  {code:"A04",name:"HA làm đầy — 5 hộp",value:30000000,pickMax:null,opts:["Nhăn ấn đường","Thái dương hóp","Rãnh cười sâu","Mí mắt dưới hóp","Má hai bên hóp","Cằm ngắn","Làm đầy tai","Tai vểnh","Làm đầy bàn tay","Làm đầy ngón tay","Làm đầy trán","Làm đầy môi"],note:"Số vùng do bác sĩ quyết định sau khám"},
+  {code:"A05",name:"Căng chỉ mặt — 4 sợi",value:30000000,opts:[]},
+  {code:"A06",name:"Nâng mũi bằng chỉ — 4 sợi",value:30000000,opts:[]},
+  {code:"A07",name:"Nhấn mí",value:15000000,opts:[],review:"Trị giá 15tr — ví còn 15tr để chọn tiếp (D3). Cần chủ xác nhận vì phần B bán Nhấn mí 4.999.000đ."}
+];
+const GROUPS = [
+ ["B01","Thẩm mỹ mắt",[["Nhấn mí",4999000],["Cắt mí trên",7999000],["Cắt mí dưới",7999000],["Bóc mỡ mí trên",4999000],["Bóc mỡ mí dưới",4999000],["Mở rộng góc mắt",4999000],["Cấy mỡ mí trên",4999000],["Cấy mỡ mí dưới",4999000],["Nâng cung chân mày thường",4999000],["Nâng cung chân mày nội soi dấu chỉ",7999000],["Can thiệp cơ vùng mắt",3599000],["Mí sửa lỗi hỏng độ 1",11999000],["Mí sửa lỗi hỏng độ 2",16999000],["Mí sửa lỗi hỏng độ 3",24999000]]],
+ ["B02","Thẩm mỹ mũi",[["Sụn Signature Silicon (Mỹ)",13999000],["Sụn Siliflex (Hàn Quốc)",19999000],["Sụn sườn sinh học Platinum Sugiform",35999000],["Nâng mũi cấu trúc sụn sườn",55999000],["Thu gọn cánh mũi",4999000],["Thu gọn đầu mũi",4999000],["Thu nền mũi",4999000],["Bọc đầu mũi sụn tai",6499000],["Bọc đầu mũi cân cơ",7999000],["Bọc đầu mũi Megaderm",7999000],["Trụ mũi sụn tai",6499000],["Trụ mũi Matrix",7999000],["Trụ mũi Medpor",11999000],["Mài gồ sống mũi",5999000],["Đục gồ sống mũi",7999000],["Thay sụn mũi",4999000,"S","+ vật liệu"]]],
+ ["B03","Thẩm mỹ cằm & miệng",[["Thu mỏng môi",12000000],["Tạo hình môi tim",9500000],["Thu ngắn nhân trung",12000000],["Nhấn nhân trung",6500000],["Tạo khóe môi cười",6500000],["Cắt hãm lợi trị cười hở lợi",5000000],["Độn cằm Signature Silicon (Mỹ)",16000000],["Độn cằm sụn Siliflex (Hàn Quốc)",18500000],["Sửa độn cằm lỗi",5000000,"S","+ vật liệu"]]],
+ ["B04","Má, thái dương & căng da mặt",[["Hút mỡ má",21999000,"S","",["B04","B06"]],["Tạo má lúm",3999000],["Bóc mỡ má",21999000],["Độn hố lê Signature (Mỹ)",15999000],["Độn hố lê Siliflex (Hàn Quốc)",18499000],["Độn thái dương Signature (Mỹ)",23999000],["Độn thái dương Siliflex (Hàn Quốc)",31999000],["Căng da vùng má",19999000],["Căng da vùng thái dương",19999000],["Căng da sau tai",19999000],["Căng da trán",19999000],["Căng da cổ",19999000],["Hạ đường chân tóc",19999000]]],
+ ["B05","Thẩm mỹ ngực",[["Sa trễ độ 1",15999000],["Sa trễ độ 2",23999000],["Sa trễ độ 3",31999000],["Sa trễ độ 4",49999000],["Sửa núm vú tụt",4999000],["Thu nhỏ núm vú",4999000],["Thu ngắn núm vú",4999000],["Thu quầng ti độ 1",9999000],["Thu quầng ti độ 2",11999000],["Hút tuyến vú phụ hai bên",14999000],["Thu gọn ngực phì đại độ 1",39999000],["Thu gọn ngực phì đại độ 2",49999000],["Túi Mentor tròn",55999000],["Túi Mentor nhám",60999000],["Túi Mentor Memory Xtra",89999000],["Túi Motiva Nano",54999000],["Túi Motiva Nano Chip",59999000],["Túi Motiva Ergonomix",74999000]]],
+ ["B06","Hút mỡ & cấy mỡ",[["Hút mỡ mặt trước (6 vùng)",29999999,"S","Giá nghi gõ nhầm — chờ xác nhận"],["Hút mỡ mặt sau (6 vùng)",29999999,"S","Giá nghi gõ nhầm — chờ xác nhận"],["Siết eo + căng da mini",24999000],["Siết eo + tạo hình thành bụng chuyển rốn",39999000],["Hút mỡ các vùng lẻ",5999000],["@Hút mỡ má"],["Cấy mỡ các vùng",5999000],["Hút mỡ bắp chân hai bên",24999000],["Hút mỡ đùi dưới 60 cm",39999000],["Hút mỡ đùi 60–80 cm",49999000],["Hút mỡ đùi trên 80 cm",54999000],["Sửa sẹo căng da bụng / sẹo mổ đẻ xấu",11999000]]],
+ ["B07","Tân trang vùng kín",[["Vá màng trinh",11999000],["Cắt tạo hình môi bé",6499000],["Cắt tạo hình môi lớn",11999000],["Treo mũ âm vật",6499000],["Thu tầng sinh môn",6499000],["Thu ống âm đạo độ 1",15999000],["Thu ống âm đạo độ 2",19999000],["Thu ống âm đạo độ 3",23999000],["Siết cơ sàn chậu",7999000],["Tạo điểm G trong ống âm đạo",11999000],["Làm đầy môi lớn bằng mỡ tự thân",11999000],["Làm đầy mu bằng mỡ tự thân",11999000]]],
+ ["B08","Chỉ – Filler – Botox",[["Cấy chỉ Mono trẻ hóa",399000,"T"],["Chỉ xóa nhăn sâu",3999000,"T"],["Chỉ nâng mũi Hàn Quốc",1999000,"T"],["Chỉ nâng mũi Châu Âu",2999000,"T"],["Thu lỗ mũi bằng chỉ",4999000],["Căng chỉ nâng cơ chuẩn Hàn",2999000,"T"],["Căng chỉ nâng cơ chuẩn Mỹ",3999000,"T"],["Căng chỉ nâng cơ chuẩn Châu Âu",4499000,"T"],["Filler làm đầy Hàn",2999000,"U"],["Filler làm đầy Mỹ",5999000,"U"],["Filler làm đầy Châu Âu",11999000,"U"],["Botox xóa nhăn Hàn",9999000],["Botox xóa nhăn Mỹ",12999000]]]
+];
+const UNIT = {S:"", T:"/sợi", U:"/đv"};
+const ITEMS = []; // phần B, mỗi mục một lần
+(function buildCatalog(){
+  for (const [g,label,rows] of GROUPS){
+    rows.forEach((r,i)=>{
+      if (r[0].startsWith("@")) return; // mục hiển thị ở 2 nhóm
+      ITEMS.push({code:`${g}-${String(i+1).padStart(2,"0")}`,group:g,groupLabel:label,name:r[0],price:r[1],unit:r[2]||"S",note:r[3]||"",groups:r[4]||[g],review:/nhầm/.test(r[3]||"")});
+    });
+  }
+})();
+const ADDON_BPS = Object.fromEntries(GROUPS.map(g=>[g[0],1200])); // D11: 12% cả 8 nhóm
+function itemByCode(c){return BUNDLES.find(b=>b.code===c)||ITEMS.find(i=>i.code===c)}
+
+// ---------- tiện ích ----------
+const pad=n=>String(n).padStart(2,"0");
+function mulDivFloor(a,b,c){ return Number((BigInt(Math.round(a))*BigInt(Math.round(b)))/BigInt(Math.round(c))); }
+function vnd(n){ return (n<0?"−":"")+Math.abs(Math.round(n)).toLocaleString("vi-VN"); }
+function vndH(n){ return `<span class="vnd num">${vnd(n)}<small>đ</small></span>`; }
+function short(n){ const a=Math.abs(n), s=n<0?"−":""; if(a>=1e9) return s+(a/1e9).toLocaleString("vi-VN",{maximumFractionDigits:2})+" tỷ"; if(a>=1e6) return s+(a/1e6).toLocaleString("vi-VN",{maximumFractionDigits:1})+" tr"; return s+vnd(a)+"đ"; }
+function shortH(n){ return `<span class="num" title="${vnd(n)}đ">${short(n)}</span>`; }
+function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function parseD(s){ const [y,m,d]=s.split("-").map(Number); return new Date(Date.UTC(y,m-1,d)); }
+function fmtD(dt){ return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth()+1)}-${pad(dt.getUTCDate())}`; }
+function addDays(s,n){ const d=parseD(s); d.setUTCDate(d.getUTCDate()+n); return fmtD(d); }
+function addMonths(s,n){ const d=parseD(s); const day=d.getUTCDate(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth()+n); const last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate(); d.setUTCDate(Math.min(day,last)); return fmtD(d); }
+function vnDate(s){ if(!s) return "—"; const [y,m,d]=s.split("-"); return `${d}/${m}/${y}`; }
+const monthOf=s=>s.slice(0,7);
+function nextMonth(m){ return addMonths(m+"-01",1).slice(0,7); }
+function prevMonth(m){ return addMonths(m+"-01",-1).slice(0,7); }
+function vnMonth(m){ const [y,mm]=m.split("-"); return `T${Number(mm)}/${y}`; }
+function daysBetween(a,b){ return Math.round((parseD(b)-parseD(a))/86400000); }
+function maskPhone(last5){ return "***"+String(last5).slice(-3); }
+function initials(name){ const p=name.trim().split(/\s+/); return p.length>1? p.slice(0,-1).map(w=>w[0]+".").join("")+" "+p[p.length-1] : name; }
+
+// Lịch ngày làm việc: T2–T6, trừ ngày lễ do Ban điều hành cấu hình (thứ Bảy: chờ chủ chốt, mặc định nghỉ).
+const HOLIDAYS = new Set(["2026-01-01","2026-02-16","2026-02-17","2026-02-18","2026-02-19","2026-02-20","2026-04-27","2026-04-30","2026-05-01","2026-09-01","2026-09-02","2027-01-01","2027-02-04","2027-02-05","2027-02-08","2027-02-09","2027-02-10","2027-04-16","2027-04-30","2027-05-03","2027-09-02","2027-09-03"]);
+function isWorkingDay(s){ const w=parseD(s).getUTCDay(); return w!==0 && w!==6 && !HOLIDAYS.has(s); }
+function addWorkingDays(s,n){ let d=s, k=0; while(k<n){ d=addDays(d,1); if(isWorkingDay(d)) k++; } return d; }
+function workingDaysBetween(a,b){ let d=a,k=0; while(d<b){ d=addDays(d,1); if(isWorkingDay(d)) k++; } return k; }
+
+// ---------- công thức thuần (mục 6.3 đặc tả) ----------
+const F = {
+  refundUnused:(balance)=> mulDivFloor(PKG_PRICE, Math.max(0,balance), ENTITLEMENT),                         // F1
+  addon:(paidNet, bps)=> mulDivFloor(Math.max(0,paidNet), bps, 10000),                                        // F3
+  settle2B:({paid,usedValue,bonusOwed=0})=> paid - mulDivFloor(usedValue,500000000,1500000000) + bonusOwed,   // F7
+  settle5:({paid,owed=0,received,totalValue=1800000000,direct=0})=> paid + owed - mulDivFloor(received,570000000,totalValue) - direct, // F8
+  profitShare:({bps,profit,activeDays,periodDays})=> profit<=0 ? 0 : mulDivFloor(mulDivFloor(profit,bps,10000),activeDays,periodDays), // F6
+  secondLevel:(log)=>{ if(!ALLOW_SECOND_LEVEL){ log && log("TỪ CHỐI tính thưởng cấp 2 (ALLOW_SECOND_LEVEL=false)"); return {ok:false,reason:"Chương trình chỉ tính 1 cấp (người giới thiệu trực tiếp)."}; } }
+};
+// Duy trì tháng (mục 6.4): trả về hành động đề xuất, KHÔNG BAO GIỜ tự chấm dứt.
+function evaluateMaintenance(months, required){
+  // months: [{contracts, activities, planGiven, excused}] theo thứ tự thời gian
+  let streak=0, out=[];
+  for(const m of months){
+    const counted = m.planGiven!==false && !m.excused;
+    const missAct = m.activities<1;
+    if(!counted){ out.push({status:"KHONG_TINH",note:"Bệnh viện không giao kế hoạch / tạm nghỉ đã duyệt — tháng này không tính"}); continue; }
+    if(missAct){ streak++; out.push(streak>=2? {status:"MO_VU_VIEC",note:"2 tháng liên tiếp thiếu nhiệm vụ → mở vụ việc, đếm 10 ngày làm việc giải trình"} : {status:"WARNED",note:"Thiếu nhiệm vụ tháng 1 → soạn thông báo nhắc, Ban điều hành duyệt gửi"}); }
+    else { streak=0; out.push(m.contracts<required? {status:"NHAC",note:"Thiếu hợp đồng nhưng có nhiệm vụ → chỉ nhắc + kế hoạch khắc phục"} : {status:"DAT",note:"Đạt cả 2 vòng"}); }
+  }
+  return out;
+}
+function terminationDecisionAllowed(noticeDate, explanationDate){
+  // explanationDate null = không nộp. Cho phép quyết định khi đã hết 10 ngày làm việc và không có giải trình hợp lệ trong hạn.
+  const deadline = addWorkingDays(noticeDate,10);
+  if(explanationDate && explanationDate<=deadline) return {allowed:false,deadline,reason:"Có giải trình trong hạn — xem xét giải trình"};
+  return {allowed:true,deadline,reason: explanationDate? "Giải trình nộp sau hạn":"Không giải trình"};
+}
+
+// ---------- kho dữ liệu ----------
+function uid(p){ return p+Math.random().toString(36).slice(2,9); }
+class Store {
+  constructor(state){ this.s = state; }
+  get today(){ return this.s.today; }
+  actor(){ return STAFF.find(x=>x.id===this.s.actorId)||STAFF[0]; }
+  can(action){ return CAN[action].includes(this.actor().role); }
+  need(action){ if(!this.can(action)) throw new Error(`${this.actor().name} (${this.actor().label}) không có quyền thao tác này.`); }
+  log(action, detail){ this.s.audit.unshift({at:this.today+" "+new Date().toTimeString().slice(0,5),actor:this.actor().name,action,detail}); if(this.s.audit.length>400) this.s.audit.length=400; }
+  nextCode(kind){ this.s.seq[kind]=(this.s.seq[kind]||0)+1; return this.s.seq[kind]; }
+  newPartnerCode(){ const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let c; do{ c="HP-"+Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join(""); }while(this.s.partners.some(p=>p.code===c)); return c; }
+  person(id){ return this.s.people.find(p=>p.id===id); }
+  partner(id){ return this.s.partners.find(p=>p.id===id); }
+  partnerName(id){ const p=this.partner(id); return p? this.person(p.customerId).name : "—"; }
+  partnerByCode(code){ return this.s.partners.find(p=>p.code.toUpperCase()===String(code).trim().toUpperCase()); }
+  contract(id){ return this.s.contracts.find(c=>c.id===id); }
+  paid(cid){ return this.s.pkgPayments.filter(p=>p.contractId===cid).reduce((a,p)=>a+p.amount,0); }
+  balance(cid){ return this.s.wallet.filter(w=>w.contractId===cid).reduce((a,w)=>a+w.amount,0); }
+  used(cid){ return -this.s.wallet.filter(w=>w.contractId===cid&&w.kind==="REDEEM").reduce((a,w)=>a+w.amount,0); }
+  isValidForKpi(c){ return !!c.fullyPaidAt && c.status!=="CANCELLED" && c.countsForKpi; }
+
+  // Bán gói: tạo khách (nếu mới) + Đối tác cho người mua + hợp đồng.
+  sell({buyerName,last5,referralCode,pin,firstPayment,date}){
+    this.need("sell");
+    buyerName=String(buyerName||"").trim(); last5=String(last5||"").trim();
+    if(buyerName.length<2) throw new Error("Nhập họ tên người mua.");
+    if(!/^\d{5}$/.test(last5)) throw new Error("Nhập đúng 5 số cuối SĐT.");
+    if(!/^\d{6}$/.test(String(pin||""))) throw new Error("Khách tự đặt PIN 6 số để xác nhận mỗi lần dùng quyền lợi.");
+    let person = this.s.people.find(p=>p.last5===last5 && p.name.toLowerCase()===buyerName.toLowerCase());
+    if(!person){ person={id:uid("kh"),name:buyerName,last5}; this.s.people.push(person); }
+    let owner = this.s.partners.find(p=>p.customerId===person.id);
+    let attributed = null;
+    if(referralCode){
+      attributed = this.partnerByCode(referralCode);
+      if(!attributed) throw new Error(`Không tìm thấy mã đối tác ${referralCode}.`);
+      if(owner && attributed.id===owner.id) throw new Error("Người mua không được tự giới thiệu chính mình (Q7).");
+    }
+    const repeat = !!owner && this.s.contracts.some(c=>c.ownerPartnerId===owner.id && c.status!=="CANCELLED");
+    if(!owner){ owner={id:uid("dt"),code:this.newPartnerCode(),customerId:person.id,joinedAt:date||this.today,tier:"MEMBER"}; this.s.partners.push(owner); }
+    if(attributed && attributed.id===owner.id) throw new Error("Người mua không được tự giới thiệu chính mình (Q7).");
+    const c={id:uid("hd"),code:"GOI-"+String(this.nextCode("contract")).padStart(6,"0"),ownerPartnerId:owner.id,attributedPartnerId:attributed?attributed.id:null,
+      soldBy:this.actor().name,soldById:this.actor().id,signedAt:date||this.today,fullyPaidAt:null,expiresAt:null,status:"SIGNED",pin:String(pin),countsForKpi:!repeat,endedAt:null,refundDueAt:null,mechVersion:this.s.mech.version};
+    this.s.contracts.push(c);
+    this.log("BÁN GÓI",`${c.code} · ${buyerName} (${maskPhone(last5)})${attributed?` · giới thiệu: ${this.partnerName(attributed.id)} ${attributed.code}`:""}${repeat?" · gói thứ 2 — không tính KPI (Q2)":""}`);
+    if(firstPayment>0) this.collect(c.id, firstPayment, date);
+    return c;
+  }
+  collect(cid, amount, date){
+    this.need("collect");
+    const c=this.contract(cid); amount=Math.round(Number(amount)||0);
+    if(!c||!["SIGNED","ACTIVE"].includes(c.status)) throw new Error("Hợp đồng không ở trạng thái thu tiền.");
+    const due = PKG_PRICE - this.paid(cid);
+    if(amount<=0) throw new Error("Số tiền phải lớn hơn 0.");
+    if(amount>due) throw new Error(`Chỉ còn phải thu ${vnd(due)}đ.`);
+    const d=date||this.today;
+    this.s.pkgPayments.push({id:uid("tt"),contractId:cid,kind:"PAYMENT",amount,at:d,by:this.actor().name});
+    this.log("THU TIỀN GÓI",`${c.code} · ${vnd(amount)}đ`);
+    if(this.paid(cid)===PKG_PRICE && !c.fullyPaidAt) this.activate(c,d);
+  }
+  activate(c,d){
+    c.fullyPaidAt=d; c.status="ACTIVE"; c.expiresAt=addMonths(d,12);
+    this.s.wallet.push({id:uid("vi"),contractId:c.id,kind:"GRANT",amount:ENTITLEMENT,label:"Kích hoạt ví quyền lợi",at:d,by:this.actor().name,key:"GRANT:"+c.id});
+    if(c.attributedPartnerId){
+      // T11: mỗi hợp đồng chỉ một khoản 3tr dương
+      if(this.s.commissions.some(e=>e.contractId===c.id && e.type==="REFERRAL_FLAT" && e.amount>0)) throw new Error("Hợp đồng đã có hoa hồng giới thiệu.");
+      this.s.commissions.push({id:uid("hh"),partnerId:c.attributedPartnerId,type:"REFERRAL_FLAT",state:"PENDING",amount:REFERRAL_FLAT,basis:PKG_PRICE,sourceType:"PACKAGE_CONTRACT",sourceRef:c.id,contractId:c.id,period:monthOf(d),batchId:null,at:d,note:`Giới thiệu ${c.code}`,mech:"REFERRAL_FLAT v"+this.s.mech.version});
+    }
+    this.log("KÍCH HOẠT VÍ",`${c.code} · +30.000.000đ · hạn ${vnDate(c.expiresAt)}`);
+  }
+  saveSelection(cid,{bundle,options,extras}){
+    this.need("select");
+    const c=this.contract(cid); if(!c||c.status!=="ACTIVE") throw new Error("Chỉ lập phiếu chọn khi ví đã kích hoạt.");
+    const b = bundle? BUNDLES.find(x=>x.code===bundle):null;
+    const alreadyBundle = this.s.selections.some(s=>s.contractId===cid && s.lines.some(l=>l.code.startsWith("A")));
+    if(b && alreadyBundle) throw new Error("Hợp đồng đã chọn gói chính. Phần còn lại trong ví dùng để chọn tiếp dịch vụ phần B.");
+    if(b && b.opts.length){
+      if(!options.length) throw new Error(`Gói ${b.code}: chọn ít nhất 1 vùng/lựa chọn.`);
+      if(b.pickMax && options.length>b.pickMax) throw new Error(`Gói ${b.code}: chỉ được chọn tối đa ${b.pickMax}.`);
+    }
+    if(!b && !extras.length) throw new Error("Chưa chọn gì.");
+    const lines=[];
+    if(b) lines.push({code:b.code,name:b.name+(options.length?` (${options.join(", ")})`:""),unitValue:b.value,qty:1,state:"CHO_BAC_SI"});
+    for(const e of extras){ const it=itemByCode(e.code); lines.push({code:it.code,name:it.name,unitValue:it.price,qty:Math.max(1,e.qty|0),state:"CHO_BAC_SI"}); }
+    const sel={id:uid("pc"),contractId:cid,at:this.today,by:this.actor().name,lines,doctor:null};
+    this.s.selections.push(sel);
+    this.log("PHIẾU CHỌN",`${c.code} · ${lines.length} mục (mong muốn, chưa phải chỉ định)`);
+  }
+  prescribe(selId, decisions){
+    this.need("prescribe");
+    const sel=this.s.selections.find(s=>s.id===selId);
+    sel.lines.forEach((l,i)=>{ if(l.state!=="CHO_BAC_SI") return; const d=decisions[i]; if(!d) return; if(d.ok){ l.state="DA_CHI_DINH"; l.qty=Math.max(1,d.qty|0); } else l.state="KHONG_CHI_DINH"; });
+    sel.doctor=this.actor().name;
+    this.log("BÁC SĨ CHỈ ĐỊNH",`${this.contract(sel.contractId).code} · ${sel.lines.filter(l=>l.state==="DA_CHI_DINH").length} mục được chỉ định`);
+  }
+  // Ghi nhận sử dụng: trừ ví (bắt buộc PIN). Vượt ví: bắt buộc đồng ý trước, phần vượt thu riêng như dịch vụ ngoài gói.
+  redeem(selId, lineIdx, {pin, overageConsent, overagePaid}){
+    this.need("redeem");
+    const sel=this.s.selections.find(s=>s.id===selId); const c=this.contract(sel.contractId); const l=sel.lines[lineIdx];
+    if(c.status!=="ACTIVE") throw new Error("Ví không còn hiệu lực.");
+    if(l.state!=="DA_CHI_DINH") throw new Error("Mục này chưa được bác sĩ chỉ định.");
+    if(String(pin)!==c.pin) throw new Error("PIN của chủ gói không đúng. Không ghi nhận.");
+    const value=l.unitValue*l.qty, bal=this.balance(c.id);
+    if(bal<=0) throw new Error("Ví đã hết.");
+    const fromWallet=Math.min(value,bal), over=value-fromWallet;
+    if(over>0 && !overageConsent) throw new Error(`Vượt ví ${vnd(over)}đ — cần khách đồng ý trước khi làm (T16).`);
+    if(over>0 && Math.round(overagePaid||0)>over) throw new Error("Số thu phần vượt lớn hơn phần vượt.");
+    this.s.wallet.push({id:uid("vi"),contractId:c.id,kind:"REDEEM",amount:-fromWallet,label:l.name,itemCode:l.code,at:this.today,by:this.actor().name,key:`REDEEM:${selId}:${lineIdx}`,caseService:"HS-"+String(this.nextCode("case")).padStart(6,"0")+" (dòng giá 0đ)"});
+    l.state="DA_DUNG";
+    this.log("GHI NHẬN SỬ DỤNG",`${c.code} · ${l.name} · trừ ${vnd(fromWallet)}đ · còn ${vnd(this.balance(c.id))}đ · khách xác nhận PIN`);
+    if(over>0) this.addon(c.id,{itemCode:l.code,name:l.name+" (phần vượt ví)",gross:over,discount:0,paid:Math.round(overagePaid||0)});
+    if(this.balance(c.id)===0){ c.status="CONSUMED"; c.endedAt=this.today; this.log("DÙNG HẾT VÍ",c.code); }
+  }
+  addon(cid,{itemCode,name,gross,discount,paid}){
+    this.need("addon");
+    const c=this.contract(cid); gross=Math.round(gross); discount=Math.round(discount||0); paid=Math.round(paid||0);
+    if(gross<=0) throw new Error("Giá dịch vụ phải lớn hơn 0.");
+    if(discount<0||discount>gross) throw new Error("Giảm giá không hợp lệ.");
+    if(paid<0||paid>gross-discount) throw new Error("Số thu vượt giá sau giảm.");
+    const it=itemByCode(itemCode); const group=it&&it.group?it.group:"B01";
+    const a={id:uid("nt"),contractId:cid,itemCode,name,gross,discount,paid,at:this.today,by:this.actor().name};
+    this.s.addons.push(a);
+    this.log("DỊCH VỤ NGOÀI GÓI",`${c.code} · ${name} · thực thu ${vnd(paid)}đ`);
+    if(c.attributedPartnerId && paid>0){
+      const bps=ADDON_BPS[group]??1200; const amt=F.addon(paid,bps);
+      this.s.commissions.push({id:uid("hh"),partnerId:c.attributedPartnerId,type:"ADDON_PCT",state:"PENDING",amount:amt,basis:paid,rateBps:bps,sourceType:"ADDON_PAYMENT",sourceRef:a.id,contractId:cid,period:monthOf(this.today),batchId:null,at:this.today,note:`Ngoài gói: ${name}`,mech:"ADDON_PCT v"+this.s.mech.version});
+    }
+  }
+  // Hết hạn / chấm dứt: hoàn phần chưa dùng theo F1, hạn 15 ngày làm việc. Không thu hồi hoa hồng giới thiệu.
+  endWithRefund(cid, reason){
+    this.need("end");
+    const c=this.contract(cid); if(c.status!=="ACTIVE") throw new Error("Chỉ áp dụng cho hợp đồng đang hiệu lực.");
+    const bal=this.balance(cid), refund=F.refundUnused(bal);
+    if(bal>0) this.s.wallet.push({id:uid("vi"),contractId:cid,kind:reason==="EXPIRED"?"EXPIRE":"REFUND_CONVERSION",amount:-bal,label:reason==="EXPIRED"?"Hết hạn — quy đổi hoàn tiền":"Chấm dứt — quy đổi hoàn tiền",at:this.today,by:this.actor().name,key:"END:"+cid});
+    if(refund>0) this.s.pkgPayments.push({id:uid("tt"),contractId:cid,kind:"REFUND",amount:-refund,at:this.today,by:this.actor().name});
+    c.status=reason==="EXPIRED"?"EXPIRED":"TERMINATED"; c.endedAt=this.today; c.refundDueAt=addWorkingDays(this.today,15);
+    this.log(reason==="EXPIRED"?"HẾT HẠN":"CHẤM DỨT",`${c.code} · số dư ${vnd(bal)}đ → hoàn ${vnd(refund)}đ (F1) · hạn ${vnDate(c.refundDueAt)}`);
+    return refund;
+  }
+  // Huỷ hợp đồng, hoàn toàn bộ tiền đã thu (ví chưa dùng). Hoa hồng: chưa trả → huỷ; đã trả → bút toán −3tr bù trừ kỳ sau (D6).
+  cancel(cid){
+    this.need("end");
+    const c=this.contract(cid);
+    if(!["SIGNED","ACTIVE"].includes(c.status)) throw new Error("Không huỷ được hợp đồng ở trạng thái này.");
+    if(this.used(cid)>0) throw new Error("Ví đã dùng một phần — dùng 'Chấm dứt & hoàn phần chưa dùng'.");
+    const paid=this.paid(cid);
+    if(this.balance(cid)>0) this.s.wallet.push({id:uid("vi"),contractId:cid,kind:"REFUND_CONVERSION",amount:-this.balance(cid),label:"Huỷ hợp đồng",at:this.today,by:this.actor().name,key:"CANCEL:"+cid});
+    if(paid>0) this.s.pkgPayments.push({id:uid("tt"),contractId:cid,kind:"REFUND",amount:-paid,at:this.today,by:this.actor().name});
+    c.status="CANCELLED"; c.endedAt=this.today;
+    for(const e of this.s.commissions.filter(e=>e.contractId===cid && e.amount>0 && e.type==="REFERRAL_FLAT")){
+      if(this.s.commissions.some(x=>x.reversalOf===e.id)) continue;
+      if(["PENDING","ELIGIBLE"].includes(e.state) && !e.batchId){ e.state="VOID"; this.s.commissions.push({id:uid("hh"),partnerId:e.partnerId,type:"CLAWBACK",state:"VOID",amount:-e.amount,sourceType:"REVERSAL",sourceRef:e.id,reversalOf:e.id,contractId:cid,period:e.period,at:this.today,note:`Huỷ ${c.code} trước khi trả — đảo hoa hồng`}); }
+      else this.s.commissions.push({id:uid("hh"),partnerId:e.partnerId,type:"OFFSET",state:"ELIGIBLE",amount:-e.amount,sourceType:"REVERSAL",sourceRef:e.id,reversalOf:e.id,contractId:cid,period:nextMonth(monthOf(this.today)),at:this.today,note:`Huỷ ${c.code} sau khi đã trả — bù trừ kỳ sau (D6)`});
+    }
+    this.log("HUỶ HỢP ĐỒNG",`${c.code} · hoàn ${vnd(paid)}đ`);
+  }
+  // Đối soát tháng: hoa hồng PENDING của kỳ ≤ period, hợp đồng còn hợp lệ tại ngày đối soát → ELIGIBLE.
+  reconcile(period){
+    this.need("reconcile");
+    if(period>=monthOf(this.today)) throw new Error("Chỉ đối soát kỳ đã kết thúc.");
+    let n=0,sum=0;
+    for(const e of this.s.commissions){
+      if(e.state!=="PENDING"||e.period>period) continue;
+      const c=e.contractId? this.contract(e.contractId):null;
+      if(c && c.status==="CANCELLED") continue;
+      e.state="ELIGIBLE"; e.eligibleAt=this.today; n++; sum+=e.amount;
+    }
+    this.log("ĐỐI SOÁT",`Kỳ ${vnMonth(period)} · ${n} khoản chuyển "Đủ điều kiện" · ${vnd(sum)}đ`);
+    return {n,sum};
+  }
+  createBatch(){
+    this.need("batchCreate");
+    const pool=this.s.commissions.filter(e=>e.state==="ELIGIBLE"&&!e.batchId);
+    const byP={}; for(const e of pool){ (byP[e.partnerId]=byP[e.partnerId]||[]).push(e); }
+    const ids=[]; let total=0; const lines=[];
+    for(const [pid,es] of Object.entries(byP)){ const net=es.reduce((a,e)=>a+e.amount,0); if(net<=0) continue; es.forEach(e=>ids.push(e.id)); total+=net; lines.push({partnerId:pid,net,count:es.length}); }
+    if(!ids.length) throw new Error("Không có khoản nào đủ điều kiện (hoặc số âm còn lớn hơn số dương — chuyển kỳ sau).");
+    const b={id:uid("lo"),code:"LO-"+String(this.nextCode("batch")).padStart(4,"0"),createdBy:this.actor().name,createdAt:this.today,approvedBy:null,status:"CHO_DUYET",entryIds:ids,total,lines};
+    ids.forEach(id=>{ const e=this.s.commissions.find(x=>x.id===id); e.state="IN_BATCH"; e.batchId=b.id; });
+    this.s.batches.unshift(b);
+    this.log("LẬP LÔ CHI TRẢ",`${b.code} · ${lines.length} đối tác · ${vnd(total)}đ — chờ duyệt`);
+    return b;
+  }
+  approveBatch(bid){
+    this.need("batchApprove");
+    const b=this.s.batches.find(x=>x.id===bid);
+    if(b.status!=="CHO_DUYET") throw new Error("Lô không ở trạng thái chờ duyệt.");
+    if(b.createdBy===this.actor().name) throw new Error("Người lập lô không được tự duyệt (tách quyền hai người).");
+    b.status="DA_DUYET"; b.approvedBy=this.actor().name; b.approvedAt=this.today;
+    b.requests=b.lines.map(l=>({code:"DNTT-"+String(this.nextCode("pr")).padStart(5,"0"),partnerId:l.partnerId,amount:l.net}));
+    this.log("DUYỆT LÔ",`${b.code} · sinh ${b.requests.length} giấy đề nghị thanh toán`);
+  }
+  payBatch(bid){
+    this.need("batchPay");
+    const b=this.s.batches.find(x=>x.id===bid);
+    if(b.status!=="DA_DUYET") throw new Error("Lô phải được duyệt trước khi ghi đã chuyển.");
+    b.status="DA_TRA"; b.paidAt=this.today;
+    b.entryIds.forEach(id=>{ const e=this.s.commissions.find(x=>x.id===id); e.state="PAID"; e.paidAt=this.today; });
+    this.log("ĐÃ CHUYỂN",`${b.code} · ${vnd(b.total)}đ — kế toán ghi chứng từ chuyển khoản`);
+  }
+  rejectBatch(bid){
+    this.need("batchApprove");
+    const b=this.s.batches.find(x=>x.id===bid);
+    if(b.status!=="CHO_DUYET") throw new Error("Chỉ trả lại lô đang chờ duyệt.");
+    b.status="TRA_LAI"; b.approvedBy=this.actor().name;
+    b.entryIds.forEach(id=>{ const e=this.s.commissions.find(x=>x.id===id); e.state="ELIGIBLE"; e.batchId=null; });
+    this.log("TRẢ LẠI LÔ",b.code);
+  }
+  addActivity(partnerId,title){
+    this.need("activity");
+    this.s.activities.push({id:uid("nv"),partnerId,month:monthOf(this.today),title,at:this.today,by:this.actor().name});
+    this.log("GHI NHẬN NHIỆM VỤ",`${this.partnerName(partnerId)} · ${title}`);
+  }
+  requestSecondLevel(){ const r=F.secondLevel(m=>this.log("CHẶN CẤP 2",m)); return r; }
+  // Số liệu
+  kpiCount(pid, month){ return this.s.contracts.filter(c=>c.attributedPartnerId===pid && this.isValidForKpi(c) && (!month||monthOf(c.fullyPaidAt)===month)).length; }
+  earnings(pid){
+    const es=this.s.commissions.filter(e=>e.partnerId===pid && e.state!=="VOID");
+    const sum=st=>es.filter(e=>st.includes(e.state)).reduce((a,e)=>a+e.amount,0);
+    return {pending:sum(["PENDING"]),available:sum(["ELIGIBLE","IN_BATCH"]),paid:sum(["PAID"]),entries:es};
+  }
+}
+
+// ---------- dữ liệu mẫu (đánh dấu rõ là mẫu) ----------
+function seedState(){
+  const s={v:1,today:"2026-11-19",actorId:"hoa",seq:{},people:[],partners:[],contracts:[],pkgPayments:[],wallet:[],selections:[],addons:[],commissions:[],batches:[],activities:[],seats:{s2:[],s5:[]},waitlist:[],audit:[],mech:{version:1}};
+  const st=new Store(s);
+  let r=20261119; const rnd=()=>{ r=(r*1103515245+12345)%2147483648; return r/2147483648; };
+  const ho=["Nguyễn","Trần","Lê","Phạm","Hoàng","Vũ","Đặng","Bùi","Đỗ","Hồ","Ngô","Dương"], dem=["Thị","Văn","Ngọc","Minh","Thu","Hải","Thanh","Bảo","Khánh","Phương"], ten=["Lan","Hương","Mai","Tú","Linh","Hà","Trang","Yến","Nga","Huyền","Thảo","Vy","Quỳnh","Ánh","Hạnh","Dung","Loan","Nhung"];
+  const name=()=>`${ho[Math.floor(rnd()*ho.length)]} ${dem[Math.floor(rnd()*dem.length)]} ${ten[Math.floor(rnd()*ten.length)]}`;
+  const l5=()=>String(10000+Math.floor(rnd()*89999));
+  const asStaff=(id,fn)=>{ const prev=s.actorId; s.actorId=id; try{ return fn(); } finally{ s.actorId=prev; } };
+  const mk=(nm,ref,date,{pay="full",use=null}={})=>{
+    s.today=date;
+    const seller=SELLERS[Math.floor(rnd()*SELLERS.length)];
+    return asStaff(seller,()=>{
+      const c=st.sell({buyerName:nm,last5:l5(),referralCode:ref,pin:"246810",firstPayment:pay==="full"?PKG_PRICE:pay,date});
+      if(use){ asStaff("hoa",()=>{
+        const b=BUNDLES.find(x=>x.code===use);
+        s.wallet.push({id:uid("vi"),contractId:c.id,kind:"REDEEM",amount:-b.value,label:b.name,itemCode:b.code,at:addDays(date,7),by:"Lễ tân Hoa",key:"SEED:"+c.id,caseService:"HS mẫu"});
+        if(st.balance(c.id)===0){ c.status="CONSUMED"; c.endedAt=addDays(date,7); }
+      }); }
+      return c;
+    });
+  };
+  // Nhóm sáng lập (đã mua gói từ 06/2026)
+  const trang=mk("Phạm Thu Trang",null,"2026-05-20",{use:"A03"});
+  const binh=mk("Trần Văn Bình",null,"2026-05-22",{use:"A05"});
+  const hanh=mk("Nguyễn Thị Hạnh",null,"2026-08-10");
+  const quan=mk("Đỗ Minh Quân",null,"2026-06-02",{use:"A01"});
+  const long=mk("Vũ Hoàng Long",null,"2026-06-05",{use:"A04"});
+  const P=c=>s.partners.find(p=>p.id===c.ownerPartnerId);
+  const pT=P(trang),pB=P(binh),pH=P(hanh),pQ=P(quan),pL=P(long);
+  pH.code="HP-2K7Q";
+  const months=["2026-06","2026-07","2026-08","2026-09","2026-10","2026-11"];
+  const plan=[[pT,[8,10,11,9,9,6]],[pB,[5,8,9,9,9,6]],[pQ,[1,1,2,1,1,1]],[pL,[3,4,3,3,3,3]],[pH,[0,0,1,1,1,1]]];
+  for(const [p,counts] of plan){
+    counts.forEach((n,mi)=>{ for(let k=0;k<n;k++){ const day=pad(1+Math.floor(rnd()*(mi===5?18:27))); const u=rnd(); mk(name(),p.code,`${months[mi]}-${day}`,{use: u<.35?"A04":u<.5?"A07":u<.6?"A03":null}); } });
+  }
+  // Một hợp đồng trả dở (10/15tr) và một hợp đồng sắp hết hạn
+  mk("Lý Thị Kim Chi",pH.code,"2026-11-12",{pay:10000000});
+  const old=mk("Mai Văn Toàn",pB.code,"2025-12-08"); old.expiresAt="2026-12-08";
+  s.commissions.filter(e=>e.contractId===old.id).forEach(e=>{e.period="2026-06";});
+  // Trạng thái hoa hồng theo kỳ: trước T10 đã trả qua lô; T10 đủ điều kiện chờ lập lô; T11 đang chờ.
+  for(const m of months.slice(0,4)){
+    const es=s.commissions.filter(e=>e.period===m && e.state==="PENDING");
+    if(!es.length) continue;
+    const total=es.reduce((a,e)=>a+e.amount,0), code="LO-"+String(st.nextCode("batch")).padStart(4,"0");
+    const b={id:uid("lo"),code,createdBy:"Bích",createdAt:nextMonth(m)+"-05",approvedBy:"BS. Lê Đình Lam",approvedAt:nextMonth(m)+"-06",paidAt:nextMonth(m)+"-08",status:"DA_TRA",entryIds:es.map(e=>e.id),total,lines:[]};
+    es.forEach(e=>{e.state="PAID";e.batchId=b.id;e.paidAt=b.paidAt;});
+    s.batches.unshift(b);
+  }
+  s.commissions.filter(e=>e.period==="2026-10"&&e.state==="PENDING").forEach(e=>{e.state="ELIGIBLE";e.eligibleAt="2026-11-03";});
+  // Một khách của chị Hạnh làm thêm dịch vụ ngoài gói
+  s.today="2026-11-15";
+  const lan=s.contracts.find(c=>c.attributedPartnerId===pH.id && c.status!=="SIGNED");
+  asStaff("hoa",()=>st.addon(lan.id,{itemCode:"B01-02",name:"Cắt mí trên",gross:7999000,discount:0,paid:7999000}));
+  // Suất quyền lợi (minh hoạ quy trình P3 — chưa ký thật)
+  s.seats.s2=[{no:1,partnerId:pT.id,path:"A · 50 hợp đồng",from:"2026-10-01"},{no:2,partnerId:pQ.id,path:"B · thực đóng 500tr",from:"2026-09-15"}];
+  s.seats.s5=[{no:1,partnerId:pL.id,path:"Cao cấp · thực đóng 570tr",from:"2026-10-01"}];
+  s.activities.push({id:uid("nv"),partnerId:pT.id,month:"2026-11",title:"Dự họp lớn 06/11",at:"2026-11-06",by:"Nguyễn Quyên"},
+                    {id:uid("nv"),partnerId:pT.id,month:"2026-10",title:"Tổ chức chương trình khách hàng",at:"2026-10-18",by:"Nguyễn Quyên"},
+                    {id:uid("nv"),partnerId:pQ.id,month:"2026-10",title:"Hỗ trợ đội nhóm",at:"2026-10-21",by:"Nguyễn Quyên"},
+                    {id:uid("nv"),partnerId:pL.id,month:"2026-11",title:"Dự họp lớn 06/11",at:"2026-11-06",by:"Nguyễn Quyên"},
+                    {id:uid("nv"),partnerId:pL.id,month:"2026-10",title:"Dự họp lớn 09/10",at:"2026-10-09",by:"Nguyễn Quyên"});
+  // Một phiếu chọn đang chờ bác sĩ
+  s.today="2026-11-18";
+  const hanhOwn=s.contracts.find(c=>c.id===hanh.id);
+  asStaff("hoa",()=>st.saveSelection(hanhOwn.id,{bundle:"A07",options:[],extras:[{code:"B08-09",qty:2}]}));
+  s.today="2026-11-19"; s.audit=[]; s.actorId="hoa";
+  st.log("DỮ LIỆU MẪU","Khởi tạo dữ liệu minh hoạ — tên khách là giả lập");
+  return s;
+}
+
+// ---------- lưu trữ trong trình duyệt ----------
+function load(){ try{ const raw=localStorage.getItem(STORE_KEY); if(raw){ const s=JSON.parse(raw); if(s&&s.v===1) return s; } }catch(e){} return seedState(); }
+function save(){ try{ localStorage.setItem(STORE_KEY,JSON.stringify(S.s)); }catch(e){} }
+const S = new Store(load());
+
+// =====================================================================================
+// GIAO DIỆN
+// =====================================================================================
+const ROUTES=[["dai-chi-huy","Đài chỉ huy"],["hieu-suat","Hiệu suất"],["quay","Quầy"],["ke-toan","Hoa hồng & chi trả"],["cong-doi-tac","Cổng đối tác"],["suat","Suất 2% / 5%"],["mo-phong","Mô phỏng"],["kiem-thu","Kiểm thử số vàng"],["danh-muc","Danh mục"],["phan-quyen","Phân quyền"],["nhat-ky","Nhật ký"]];
+let ui={contractId:null,q:"",portalPartner:null,ptab:"home",sim:null,testRun:null,showAll:false,sellOpen:false,sellPrefill:null};
+const $=sel=>document.querySelector(sel);
+function toast(msg,bad){ const t=$("#toast"); t.textContent=msg; t.className="toast"+(bad?" bad":""); t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,bad?7000:4200); }
+function act(fn,okMsg){ try{ const r=fn(); save(); render(); if(okMsg) toast(typeof okMsg==="function"?okMsg(r):okMsg); return r; }catch(e){ toast(e.message,true); } }
+const REF_GROUP=["kiem-thu","danh-muc","phan-quyen","nhat-ky"];
+function roleNow(){ return S.actor().role; }
+function allowed(r){ return (ROUTE_ROLES[r]||[]).includes(roleNow()); }
+function defaultRoute(){ const r=roleNow(); return r==="PARTNER"?"cong-doi-tac":["ADMIN","MANAGER","SHAREHOLDER"].includes(r)?"dai-chi-huy":"hieu-suat"; }
+function route(){ const h=location.hash.slice(1); return ROUTES.some(r=>r[0]===h)&&allowed(h)?h:defaultRoute(); }
+function actorPartnerId(){ const a=S.actor(); if(a.role!=="PARTNER") return null; const p=S.s.partners.find(x=>S.person(x.customerId).name===a.partnerName); return p?p.id:null; }
+
+function renderTop(){
+  const groups=[...new Set(STAFF.map(x=>x.role))];
+  $("#actor").innerHTML=groups.map(g=>`<optgroup label="${ROLE_LABEL[g]}">${STAFF.filter(x=>x.role===g).map(x=>`<option value="${x.id}" ${x.id===S.s.actorId?"selected":""}>${esc(x.name)} — ${esc(x.label)}</option>`).join("")}</optgroup>`).join("");
+  $("#today").value=S.today;
+  const r=route();
+  const main=ROUTES.filter(([k])=>allowed(k)&&!REF_GROUP.includes(k));
+  const refs=REF_GROUP.filter(allowed);
+  $("#tabs").innerHTML=main.map(([k,l])=>`<a href="#${k}" class="${k===r?"on":""}">${l}</a>`).join("")+(refs.length?`<a href="#${refs[0]}" class="${REF_GROUP.includes(r)?"on":""}">Tra cứu</a>`:"");
+}
+function statusPill(c){
+  const m={DRAFT:["mute","Nháp"],SIGNED:["pend","Đã ký · chưa thu đủ"],ACTIVE:["pos","Đang hiệu lực"],CONSUMED:["mute","Đã dùng hết"],EXPIRED:["neg","Hết hạn"],TERMINATED:["neg","Chấm dứt"],CANCELLED:["neg","Đã huỷ"]}[c.status];
+  return `<span class="pill ${m[0]}">${m[1]}</span>`;
+}
+function cPill(e){ const m={PENDING:["pend","Chờ đối soát"],ELIGIBLE:["pos","Khả dụng"],IN_BATCH:["pend","Trong lô chi trả"],PAID:["pos","Đã trả"],VOID:["mute","Đã huỷ"]}[e.state]; return `<span class="pill ${m[0]}">${m[1]}</span>`; }
+const TYPE_LABEL={REFERRAL_FLAT:"Giới thiệu gói",ADDON_PCT:"Ngoài gói",MILESTONE_BONUS:"Thưởng mốc",OFFSET:"Bù trừ",CLAWBACK:"Đảo hoa hồng"};
+
+// ---------- Đài chỉ huy ----------
+function viewDashboard(){
+  const s=S.s, m=monthOf(S.today), pm=prevMonth(m);
+  const soldM=s.contracts.filter(c=>c.fullyPaidAt&&monthOf(c.fullyPaidAt)===m).length;
+  const soldP=s.contracts.filter(c=>c.fullyPaidAt&&monthOf(c.fullyPaidAt)===pm).length;
+  const dayFrac=Number(S.today.slice(8))/new Date(Date.UTC(+m.slice(0,4),+m.slice(5),0)).getUTCDate();
+  const cashM=s.pkgPayments.filter(p=>monthOf(p.at)===m).reduce((a,p)=>a+p.amount,0);
+  const addonM=s.addons.filter(a=>monthOf(a.at)===m).reduce((a,x)=>a+x.paid,0);
+  const active=s.contracts.filter(c=>c.status==="ACTIVE");
+  const obligation=active.reduce((a,c)=>a+S.balance(c.id),0);
+  const obligationCost=active.reduce((a,c)=>a+mulDivFloor(COST_PER_PACKAGE,S.balance(c.id),ENTITLEMENT),0);
+  const provision=active.reduce((a,c)=>a+F.refundUnused(S.balance(c.id)),0);
+  const pend=s.commissions.filter(e=>e.state==="PENDING").reduce((a,e)=>a+e.amount,0);
+  const elig=s.commissions.filter(e=>["ELIGIBLE","IN_BATCH"].includes(e.state)).reduce((a,e)=>a+e.amount,0);
+  const all=s.contracts.filter(c=>c.status!=="CANCELLED");
+  const funnel=[["Đã ký",all.length],["Thu đủ",all.filter(c=>c.fullyPaidAt).length],["Đã dùng lần 1",all.filter(c=>S.used(c.id)>0).length],["Dùng hết ví",all.filter(c=>c.status==="CONSUMED").length],["Mua thêm ngoài gói",new Set(s.addons.map(a=>a.contractId)).size]];
+  const fmax=funnel[0][1]||1;
+  const near=s.partners.map(p=>({p,n:S.kpiCount(p.id)})).filter(x=>x.n>0).sort((a,b)=>b.n-a.n).slice(0,6);
+  const exp30=active.filter(c=>c.expiresAt && daysBetween(S.today,c.expiresAt)<=30 && daysBetween(S.today,c.expiresAt)>=0);
+  const exp90=active.filter(c=>c.expiresAt && daysBetween(S.today,c.expiresAt)<=90 && daysBetween(S.today,c.expiresAt)>30);
+  const batchWait=s.batches.filter(b=>b.status==="CHO_DUYET");
+  const selWait=s.selections.filter(x=>x.lines.some(l=>l.state==="CHO_BAC_SI"));
+  const eligUnbatched=s.commissions.filter(e=>e.state==="ELIGIBLE"&&!e.batchId).length;
+  const refundsDue=s.contracts.filter(c=>c.refundDueAt && c.refundDueAt>=S.today);
+  const seatIssues=[...s.seats.s2.map(x=>({...x,req:1})),...s.seats.s5.map(x=>({...x,req:3}))].filter(x=>!s.activities.some(a=>a.partnerId===x.partnerId&&a.month===m));
+  const todo=[
+    ...seatIssues.map(x=>["neg",`${esc(S.partnerName(x.partnerId))}: chưa có nhiệm vụ chung tháng này`,"#suat"]),
+    ...batchWait.map(b=>["pend",`Lô ${b.code} (${short(b.total)}) chờ Ban điều hành duyệt`,"#ke-toan"]),
+    ...(eligUnbatched?[["pend",`${eligUnbatched} khoản hoa hồng khả dụng chưa vào lô`,"#ke-toan"]]:[]),
+    ...selWait.map(x=>["pend",`Phiếu chọn ${esc(S.contract(x.contractId).code)} chờ bác sĩ chỉ định`,"#quay"]),
+    ...refundsDue.map(c=>["neg",`Hoàn ${esc(c.code)} trước ${vnDate(c.refundDueAt)} (15 ngày làm việc)`,"#quay"]),
+    ...(exp30.length?[["neg",`${exp30.length} gói hết hạn trong 30 ngày — nhắc khách dùng nốt`,"#quay"]]:[]),
+    ...(exp90.length?[["mute",`${exp90.length} gói hết hạn trong 31–90 ngày`,"#quay"]]:[])
+  ];
+  return `
+  <div class="head"><h2>Đài chỉ huy — ${vnMonth(m)}</h2><p>Mỗi gói bán ra là một khoản bệnh viện nợ khách 30 triệu giá trị dịch vụ. Thẻ viền vàng là chỉ số quan trọng nhất.</p></div>
+  <div class="grid g5">
+    <div class="card kpi"><h3>Gói thu đủ trong tháng</h3><div class="v num">${soldM}</div><div class="s">Tháng trước ${soldP} · đã qua ${Math.round(dayFrac*100)}% tháng</div></div>
+    <div class="card kpi"><h3>Thực thu chương trình</h3><div class="v">${shortH(cashM+addonM)}</div><div class="s">Gói ${short(cashM)} · ngoài gói ${short(addonM)}</div></div>
+    <div class="card kpi key"><h3>Nghĩa vụ dịch vụ còn nợ</h3><div class="v">${shortH(obligation)}</div><div class="s">${active.length} ví đang mở · theo giá vốn ≈ ${short(obligationCost)}</div></div>
+    <div class="card kpi"><h3>Hoa hồng phải trả</h3><div class="v">${shortH(pend+elig)}</div><div class="s"><span class="pill pend">Chờ ${short(pend)}</span> <span class="pill pos">Khả dụng ${short(elig)}</span></div></div>
+    <div class="card kpi"><h3>Dự phòng hoàn khi hết hạn</h3><div class="v">${shortH(provision)}</div><div class="s">= 15tr × số dư / 30tr, nếu không ai dùng tiếp (D9)</div></div>
+  </div>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card"><h3>Phễu chương trình</h3><div class="bars">${funnel.map(([l,n])=>`<div class="bar"><span>${l}</span><div class="track"><i style="width:${Math.max(2,n/fmax*100)}%"></i></div><b class="num" style="text-align:right">${n}</b></div>`).join("")}</div></div>
+    <div class="card"><h3>Cần xử lý hôm nay <span class="pill mute">${todo.length}</span></h3>
+      <div class="list">${todo.length?todo.map(([k,t,h])=>`<a class="li" href="${h}" style="color:inherit;text-decoration:none"><span class="pill ${k}">${k==="neg"?"Cần làm":k==="pend"?"Chờ":"Theo dõi"}</span><span>${t}</span></a>`).join(""):`<div class="hint">Không có việc tồn.</div>`}</div></div>
+  </div>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card"><h3>Sơ đồ suất quyền lợi <a class="btn sm" href="#suat">Mở</a></h3>${seatMap()}</div>
+    <div class="card"><h3>Gần mốc lên hạng (hợp đồng hợp lệ, ghi nhận trực tiếp)</h3>
+      <div class="list">${near.map(({p,n})=>`<div class="li" style="flex-direction:column;gap:2px"><div style="display:flex;width:100%"><b>${esc(S.partnerName(p.id))}</b><span class="mono" style="margin-left:8px;color:var(--mute)">${p.code}</span><span class="amt num">${n} / ${n>=50?60:50}</span></div><div class="prog" style="width:100%"><i style="width:${Math.min(100,n/(n>=50?60:50)*100)}%"></i></div></div>`).join("")}</div>
+      <p class="hint">Chỉ đếm hợp đồng gói đã thanh toán đủ, chưa huỷ, không đếm gói tự mua lần 2 (Q2). Không có bảng xếp hạng công khai.</p></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>Danh sách đối tác <span class="pill mute">${s.partners.length}</span></h3>${partnerTable()}</div>`;
+}
+function seatMap(){
+  const s=S.s; const row=(arr,max,gold)=>Array.from({length:max},(_,i)=>{ const t=arr.find(x=>x.no===i+1); return `<span class="seat ${gold?"gold":""} ${t?"taken":""}" title="${t?esc(S.partnerName(t.partnerId)):"Trống"}">${i+1}</span>`; }).join("");
+  return `<div class="stack"><div><div class="hint" style="margin-bottom:6px">Suất 2% · ${s.seats.s2.length}/10</div><div class="seats">${row(s.seats.s2,10,false)}</div></div>
+  <div><div class="hint" style="margin-bottom:6px">Suất 5% · ${s.seats.s5.length}/5</div><div class="seats">${row(s.seats.s5,5,true)}</div></div>
+  <p class="hint">Suất trong bản chạy thử là minh hoạ quy trình (giai đoạn P3). Khuyến nghị: không ký suất thật trước khi P3 xong.</p></div>`;
+}
+function partnerTable(){
+  const s=S.s; const m=monthOf(S.today);
+  const rows=s.partners.map(p=>{ const e=S.earnings(p.id); const own=s.contracts.filter(c=>c.ownerPartnerId===p.id&&c.status==="ACTIVE"); const bal=own.reduce((a,c)=>a+S.balance(c.id),0); return {p,e,bal,kpi:S.kpiCount(p.id),kpiM:S.kpiCount(p.id,m)}; }).sort((a,b)=>b.kpi-a.kpi||b.e.paid-a.e.paid).slice(0,40);
+  return `<div class="tbl"><table><thead><tr><th>Đối tác</th><th>Mã</th><th>Hạng</th><th class="r">Ví còn</th><th class="r">HĐ ghi nhận</th><th class="r">Tháng này</th><th class="r">Chờ</th><th class="r">Khả dụng</th><th class="r">Đã trả</th></tr></thead><tbody>
+  ${rows.map(({p,e,bal,kpi,kpiM})=>{ const seat=s.seats.s5.some(x=>x.partnerId===p.id)?`<span class="pill pend" style="background:var(--g100);color:var(--ink)">Cao cấp 5%</span>`:s.seats.s2.some(x=>x.partnerId===p.id)?`<span class="pill pos">Quyền lợi 2%</span>`:`<span class="pill mute">Đối tác</span>`;
+    return `<tr class="click" data-portal="${p.id}"><td>${esc(S.partnerName(p.id))}</td><td class="mono">${p.code}</td><td>${seat}</td><td class="r">${vndH(bal)}</td><td class="r num">${kpi}</td><td class="r num">${kpiM}</td><td class="r">${vndH(e.pending)}</td><td class="r">${vndH(e.available)}</td><td class="r">${vndH(e.paid)}</td></tr>`; }).join("")}
+  </tbody></table></div><p class="hint">Bấm một dòng để xem cổng của đối tác đó. Hiển thị 40 dòng đầu.</p>`;
+}
+
+// ---------- Quầy ----------
+// Nút hành động: có quyền → nút thật; cổ đông → khoá; vai trò khác → nút "chuyển sang người làm được".
+const HOP={prescribe:"bsminh",batchApprove:"lam",reconcile:"bich",batchCreate:"bich",batchPay:"bich",sell:"hoa",redeem:"hoa",select:"hoa",addon:"hoa",collect:"hoa",end:"bich",activity:"lam"};
+function actBtn(action,attrs,label,{cls="pri",sm=false,avoid=null}={}){
+  const size=sm?" sm":"";
+  if(S.can(action)&&!(avoid&&S.actor().name===avoid)) return `<button class="btn ${cls}${size}" ${attrs}>${label}</button>`;
+  if(roleNow()==="SHAREHOLDER") return `<button class="btn${size}" disabled title="Cổ đông: chế độ chỉ xem">${label}</button>`;
+  let to=STAFF.find(x=>x.id===HOP[action]);
+  if(avoid&&to.name===avoid) to=STAFF.find(x=>CAN[action].includes(x.role)&&x.name!==avoid);
+  return `<button class="btn${size}" data-hop="${to.id}" title="Việc này cần ${esc(to.label)}">${label} → chuyển sang ${esc(to.name)}</button>`;
+}
+function nextStep(c){
+  const s=S.s; const sels=s.selections.filter(x=>x.contractId===c.id);
+  const lines=sels.flatMap(x=>x.lines);
+  if(c.status==="SIGNED") return {t:"Thu nốt tiền gói",d:`Còn phải thu ${vnd(PKG_PRICE-S.paid(c.id))}đ. Thu đủ thì ví 30.000.000đ mở.`,go:"sec-thu"};
+  if(c.status!=="ACTIVE") return {t:"Hợp đồng đã kết thúc",d:"Không còn thao tác trên ví. Xem sao kê bên dưới.",go:"sec-saoke"};
+  if(lines.some(l=>l.state==="CHO_BAC_SI")) return {t:"Chờ bác sĩ chỉ định",d:"Khách đã chọn. Bác sĩ khám rồi xác nhận mục được làm.",go:"sec-chidinh"};
+  if(lines.some(l=>l.state==="DA_CHI_DINH")) return {t:"Ghi nhận sử dụng",d:"Mục đã được chỉ định. Khách nhập PIN để trừ ví.",go:"sec-chidinh"};
+  if(!lines.some(l=>l.code.startsWith("A"))) return {t:"Lập phiếu chọn",d:"Khách chọn 1 gói chính (và dịch vụ làm thêm nếu muốn).",go:"sec-phieu"};
+  return {t:`Ví còn ${vnd(S.balance(c.id))}đ`,d:"Khách có thể chọn tiếp dịch vụ phần B, hoặc làm thêm ngoài gói (thu riêng).",go:"sec-phieu"};
+}
+function viewCounter(){
+  const s=S.s;
+  const q=ui.q.trim().toLowerCase();
+  const sc=scopeFor();
+  const scoped=s.contracts.slice().reverse().filter(c=>sc.all||roleNow()==="RECEPTION"||roleNow()==="DOCTOR"||sc.ids.includes(c.soldById));
+  const filtered=scoped.filter(c=>{ if(!q) return true; const o=S.person(S.partner(c.ownerPartnerId).customerId); return c.code.toLowerCase().includes(q)||o.name.toLowerCase().includes(q)||o.last5.endsWith(q)||S.partner(c.ownerPartnerId).code.toLowerCase().includes(q); });
+  if(roleNow()==="DOCTOR" && !q) filtered.sort((x,y)=>(s.selections.some(z=>z.contractId===y.id&&z.lines.some(l=>l.state==="CHO_BAC_SI"))?1:0)-(s.selections.some(z=>z.contractId===x.id&&z.lines.some(l=>l.state==="CHO_BAC_SI"))?1:0));
+  const list=filtered.slice(0,ui.showAll?60:8);
+  if(!ui.contractId || !S.contract(ui.contractId) || !scoped.some(c=>c.id===ui.contractId)) ui.contractId=filtered[0]?.id||null;
+  const openSell=ui.sellOpen||scoped.length===0;
+  return `
+  <div class="head"><h2>Quầy</h2><p>Bán gói, lập phiếu chọn, bác sĩ chỉ định, khách nhập PIN để dùng quyền lợi. Mỗi hợp đồng có ô "Việc tiếp theo" ở đầu.</p></div>
+  <div class="quay">
+    <div class="qa-sell">${S.can("sell")?`<details class="card" id="sellBox" ${openSell?"open":""}><summary class="sumh">+ Bán gói 15 triệu cho khách mới</summary><div style="margin-top:12px">${sellForm()}</div></details>`:`<div class="card hint">${roleNow()==="SHAREHOLDER"?"Chế độ chỉ xem: không có nút bán, thu tiền hay sửa.":roleNow()==="DOCTOR"?"Bác sĩ: hợp đồng đang chờ chỉ định được xếp lên đầu. Không hiển thị hoa hồng.":"Vai trò này không bán gói."}</div>`}</div>
+    <div class="qa-panel" id="panel">${ui.contractId?contractPanel(S.contract(ui.contractId)):`<div class="card">Chưa có hợp đồng nào trong phạm vi của bạn.</div>`}</div>
+    <div class="qa-list card"><h3>Hợp đồng ${sc.all||roleNow()==="RECEPTION"||roleNow()==="DOCTOR"?"":`<span class="pill pend">${esc(sc.label)}</span>`}<span class="pill mute">${filtered.length}</span></h3>
+      <div class="fld" style="margin-bottom:10px"><label for="q">Tìm theo tên, 5 số cuối SĐT, mã hợp đồng hoặc mã đối tác</label><input id="q" value="${esc(ui.q)}"></div>
+      <div class="list">${list.map(c=>{ const o=S.person(S.partner(c.ownerPartnerId).customerId); const wait=s.selections.some(z=>z.contractId===c.id&&z.lines.some(l=>l.state==="CHO_BAC_SI"));
+        return `<button class="crow ${c.id===ui.contractId?"on":""}" data-contract="${c.id}"><span><b>${esc(o.name)}</b> <span class="hint">${maskPhone(o.last5)}</span><span class="mono hint" style="display:block">${c.code}</span></span><span style="text-align:right"><span class="num">${vnd(S.balance(c.id))}đ</span><span style="display:block">${wait?`<span class="pill pend">Chờ bác sĩ</span>`:statusPill(c)}</span></span></button>`; }).join("")||`<div class="hint">Không tìm thấy.</div>`}</div>
+      ${filtered.length>list.length?`<button class="btn sm" data-showall="1" style="margin-top:8px">Xem thêm ${filtered.length-list.length} hợp đồng</button>`:""}
+    </div>
+  </div>`;
+}
+function sellForm(){
+  const pre=ui.sellPrefill||{};
+  return `<form id="sellForm" class="stack" autocomplete="off">
+    <div class="row"><div class="fld"><label for="sName">Họ tên người mua</label><input id="sName" value="${esc(pre.name||"")}"></div>
+    <div class="fld" style="flex:0 1 140px"><label for="sL5">5 số cuối SĐT</label><input id="sL5" inputmode="numeric" maxlength="5" value="${esc(pre.l5||"")}"></div></div>
+    <div class="row"><div class="fld"><label for="sRef">Mã đối tác giới thiệu (nếu có)</label><input id="sRef" style="text-transform:uppercase" value="${esc(pre.ref||"")}"><div id="refInfo" class="hint">${pre.ref&&S.partnerByCode(pre.ref)?`<span class="ok">✓ ${esc(S.partnerName(S.partnerByCode(pre.ref).id))} · ${pre.ref}</span>`:"Ví dụ HP-2K7Q (chị Hạnh). Hệ thống hiện tên để xác nhận đúng người."}</div></div>
+    <div class="fld" style="flex:0 1 140px"><label for="sPin">PIN khách tự đặt (6 số)</label><input id="sPin" inputmode="numeric" maxlength="6" value="${esc(pre.pin||"")}"></div></div>
+    <div class="row"><div class="fld"><label for="sPay">Thu lần này</label><select id="sPay"><option value="15000000">Thu đủ 15.000.000đ</option><option value="10000000">Thu trước 10.000.000đ</option><option value="5000000">Thu trước 5.000.000đ</option><option value="0">Chưa thu</option></select></div></div>
+    <div class="row"><button class="btn pri" type="submit">Ký hợp đồng & thu tiền</button><button class="btn" type="button" data-sample="1">Điền dữ liệu mẫu</button></div>
+    <p class="hint" style="margin:0">Thu đủ 15.000.000đ thì ví 30.000.000đ mở ngay, hạn 12 tháng. Người mua tự trở thành Đối tác và có mã giới thiệu riêng.</p>
+  </form>`;
+}
+function contractPanel(c){
+  const s=S.s, owner=S.partner(c.ownerPartnerId), person=S.person(owner.customerId);
+  const bal=S.balance(c.id), paid=S.paid(c.id), due=PKG_PRICE-s.pkgPayments.filter(p=>p.contractId===c.id&&p.kind==="PAYMENT").reduce((a,p)=>a+p.amount,0);
+  const isDoc=S.actor().role==="DOCTOR"; const seeMoney=S.can("seeMoney")&&!isDoc;
+  const sels=s.selections.filter(x=>x.contractId===c.id);
+  const entries=s.wallet.filter(w=>w.contractId===c.id);
+  const coms=s.commissions.filter(e=>e.contractId===c.id);
+  const ns=nextStep(c);
+  return `<div class="stack">
+   <div class="card">
+     <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+       <div style="min-width:0"><div style="font-size:18px;font-weight:800">${esc(person.name)} <span class="hint" style="font-weight:500">${maskPhone(person.last5)}</span></div>
+       <div class="hint"><span class="mono">${c.code}</span> · mã đối tác <span class="mono">${owner.code}</span> · bán bởi ${esc(c.soldBy)}</div>
+       <div class="hint">Người giới thiệu: <b>${c.attributedPartnerId?esc(S.partnerName(c.attributedPartnerId))+" ("+S.partner(c.attributedPartnerId).code+")":"không có"}</b>${c.countsForKpi?"":` · <span class="pill mute">Gói thứ 2 — không tính KPI</span>`}</div></div>
+       <span style="margin-left:auto">${statusPill(c)}</span>
+     </div>
+     <div class="grid g3" style="margin-top:12px">
+       <div><div class="hint">Ví quyền lợi</div><div style="font-size:22px;font-weight:800">${vndH(bal)}</div><div class="prog"><i style="width:${bal/ENTITLEMENT*100}%"></i></div><div class="hint">${c.expiresAt?"Hạn "+vnDate(c.expiresAt):"Chưa kích hoạt"}</div></div>
+       <div><div class="hint">Đã thu (ròng)</div><div style="font-size:22px;font-weight:800">${vndH(paid)}</div></div>
+       <div><div class="hint">Nếu dừng hôm nay, hoàn (F1)</div><div style="font-size:22px;font-weight:800">${vndH(c.status==="ACTIVE"?F.refundUnused(bal):0)}</div>${c.refundDueAt?`<span class="pill neg">Hạn hoàn ${vnDate(c.refundDueAt)}</span>`:""}</div>
+     </div>
+   </div>
+   <a class="next" href="#${ns.go}" data-goto="${ns.go}"><span class="k">Việc tiếp theo</span><b>${ns.t}</b><span class="hint">${ns.d}</span></a>
+   ${c.status==="SIGNED"?`<div class="card" id="sec-thu"><h3>Thu tiền</h3><div class="row"><div class="fld"><label for="colAmt">Số tiền thu thêm</label><input id="colAmt" inputmode="numeric" value="${due}"></div>${actBtn("collect",`data-collect="${c.id}"`,"Thu tiền")}</div><div class="row" style="margin-top:8px">${actBtn("end",`data-cancel="${c.id}"`,"Huỷ, hoàn số đã thu",{cls:"warn",sm:true})}</div></div>`:""}
+   ${sels.length?`<div class="card" id="sec-chidinh"><h3>Chỉ định & ghi nhận sử dụng</h3>${sels.map(x=>selectionBlock(x,c,isDoc)).join('<div class="sep" style="margin:12px 0"></div>')}</div>`:""}
+   ${c.status==="ACTIVE"&&!isDoc?`<details class="card" id="sec-phieu" ${ns.go==="sec-phieu"?"open":""}><summary class="sumh">Phiếu chọn của khách</summary><div style="margin-top:12px">${selectionForm(c)}</div></details>`:""}
+   ${c.status==="ACTIVE"&&!isDoc?`<details class="card" id="sec-ngoai"><summary class="sumh">Dịch vụ ngoài gói (thu riêng, giá ưu đãi)</summary><div style="margin-top:12px">${addonForm(c)}</div></details>`:""}
+   <details class="card" id="sec-saoke" ${c.status!=="ACTIVE"&&c.status!=="SIGNED"?"open":""}><summary class="sumh">Sao kê ví · ${entries.length} bút toán</summary>
+     <div class="tbl" style="margin-top:10px"><table><thead><tr><th>Ngày</th><th>Nội dung</th><th class="r">Phát sinh</th><th class="r">Số dư</th></tr></thead><tbody>
+     ${(()=>{ let run=0; return entries.map(w=>{ run+=w.amount; return `<tr><td>${vnDate(w.at)}</td><td>${esc(w.label)}${w.caseService?`<div class="hint">Hồ sơ điều trị: ${esc(w.caseService)}</div>`:""}</td><td class="r" style="color:${w.amount<0?"var(--neg)":"var(--pos)"}">${w.amount>0?"+":""}${vndH(w.amount)}</td><td class="r">${vndH(run)}</td></tr>`; }).join("")||`<tr><td colspan="4" class="hint">Ví chưa kích hoạt.</td></tr>`; })()}
+     </tbody></table></div><p class="hint">Sổ chỉ ghi thêm; số dư luôn bằng tổng các bút toán.</p>
+     ${seeMoney&&coms.length?`<div class="sep" style="margin:10px 0"></div><div class="hint" style="font-weight:700">Hoa hồng phát sinh từ hợp đồng này</div><div class="list">${coms.map(e=>`<div class="li"><span>${TYPE_LABEL[e.type]} · ${esc(S.partnerName(e.partnerId))}<div class="hint">${esc(e.note||"")} · kỳ ${vnMonth(e.period)}</div></span><span class="amt">${vndH(e.amount)} ${cPill(e)}</span></div>`).join("")}</div>`:""}
+   </details>
+   ${c.status==="ACTIVE"?`<details class="card"><summary class="sumh">Kết thúc hợp đồng</summary><div class="row" style="margin-top:12px">${actBtn("end",`data-end="${c.id}" data-reason="EXPIRED"`,"Hết hạn: hoàn phần chưa dùng",{cls:"",sm:true})}${actBtn("end",`data-end="${c.id}" data-reason="TERMINATED"`,"Chấm dứt: hoàn phần chưa dùng",{cls:"",sm:true})}${S.used(c.id)===0?actBtn("end",`data-cancel="${c.id}"`,"Huỷ hợp đồng, hoàn toàn bộ",{cls:"warn",sm:true}):""}</div></details>`:""}
+   ${isDoc?`<p class="hint">Bạn đang xem với vai trò Bác sĩ: các con số hoa hồng được ẩn.</p>`:""}
+  </div>`;
+}
+function selectionForm(c){
+  const hasBundle=S.s.selections.some(s=>s.contractId===c.id&&s.lines.some(l=>l.code.startsWith("A")));
+  return `<form id="selForm" data-cid="${c.id}" class="stack">
+   ${hasBundle?`<p class="hint" style="margin:0">Đã chọn gói chính. Số dư còn lại dùng để chọn tiếp dịch vụ phần B.</p>`:`<div class="hint">A. Chọn 01 gói chính (giá gói 15.000.000đ — giá trị quyền lợi 30.000.000đ)</div>
+   <div class="stack">${BUNDLES.map(b=>`<label class="bundle" style="display:block"><span class="chk" style="padding:0"><input type="radio" name="bundle" value="${b.code}"><span><b>${b.code}. ${esc(b.name)}</b> — ${vnd(b.value)}đ ${b.note?`<span class="hint">· ${esc(b.note)}</span>`:""}${b.review?`<span class="hint" style="display:block;color:var(--pend)">${esc(b.review)}</span>`:""}</span></span>${b.opts.length?`<span class="opts" data-opts="${b.code}">${b.opts.map(o=>`<label class="chk"><input type="checkbox" name="opt-${b.code}" value="${esc(o)}">${esc(o)}</label>`).join("")}</span>`:""}</label>`).join("")}</div>`}
+   <div class="row"><div class="fld"><label for="selB">B. Dịch vụ làm thêm (không bắt buộc)</label><select id="selB"><option value="">— Không chọn —</option>${GROUPS.map(([g,l])=>`<optgroup label="${esc(l)}">${ITEMS.filter(i=>i.groups.includes(g)).map(i=>`<option value="${i.code}">${esc(i.name)} — ${vnd(i.price)}${UNIT[i.unit]}</option>`).join("")}</optgroup>`).join("")}</select></div>
+   <div class="fld" style="flex:0 1 90px"><label for="selQ">Số lượng</label><input id="selQ" type="number" min="1" value="1"></div></div>
+   <div class="row">${actBtn("select",`type="submit"`,"Lưu phiếu chọn")}<span class="hint">Đây là mong muốn của khách; bác sĩ sẽ chỉ định sau khi khám.</span></div>
+  </form>`;
+}
+function selectionBlock(sel,c,isDoc){
+  const stateP={CHO_BAC_SI:["pend","Chờ bác sĩ"],DA_CHI_DINH:["pos","Đã chỉ định"],KHONG_CHI_DINH:["mute","Không chỉ định"],DA_DUNG:["mute","Đã sử dụng"]};
+  return `<div class="stack"><div class="hint">Phiếu ${vnDate(sel.at)} · lập bởi ${esc(sel.by)}${sel.doctor?` · bác sĩ ${esc(sel.doctor)}`:""}</div>
+   ${sel.lines.map((l,i)=>{ const value=l.unitValue*l.qty, bal=S.balance(c.id), over=Math.max(0,value-bal);
+     return `<div class="bundle ${l.state==="DA_CHI_DINH"?"on":""}">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>${esc(l.name)}</b><span class="pill ${stateP[l.state][0]}">${stateP[l.state][1]}</span><span class="num" style="margin-left:auto">${vnd(l.unitValue)}đ × ${l.qty}</span></div>
+      ${l.state==="CHO_BAC_SI"?`<div class="row" style="margin-top:8px">${S.can("prescribe")?`<div class="fld" style="flex:0 1 110px"><label for="rx-${sel.id}-${i}">Số lượng</label><input id="rx-${sel.id}-${i}" type="number" min="1" value="${l.qty}"></div>`:""}${actBtn("prescribe",`data-rx="${sel.id}" data-i="${i}" data-ok="1"`,"Chỉ định",{sm:true})}${S.can("prescribe")?`<button class="btn sm" data-rx="${sel.id}" data-i="${i}" data-ok="0">Không chỉ định</button>`:""}</div>`:""}
+      ${l.state==="DA_CHI_DINH"&&!isDoc&&c.status==="ACTIVE"?`<div class="stack" style="margin-top:8px">
+        <div>Trừ ví <b class="num">${vnd(Math.min(value,bal))}đ</b> → còn <b class="num">${vnd(Math.max(0,bal-value))}đ</b>${over>0?` · <span class="err">vượt ví ${vnd(over)}đ</span>`:""}</div>
+        ${over>0?`<label class="chk"><input type="checkbox" id="oc-${sel.id}-${i}">Khách đồng ý trước phần vượt ${vnd(over)}đ (thu riêng)</label><div class="fld" style="max-width:220px"><label for="op-${sel.id}-${i}">Thu phần vượt ngay</label><input id="op-${sel.id}-${i}" inputmode="numeric" value="${over}"></div>`:""}
+        <div class="row"><div class="fld" style="flex:0 1 170px"><label for="pin-${sel.id}-${i}">Khách nhập PIN</label><input id="pin-${sel.id}-${i}" inputmode="numeric" maxlength="6"></div>${actBtn("redeem",`data-redeem="${sel.id}" data-i="${i}"`,"Ghi nhận sử dụng")}</div>
+        <div class="hint">Bản thử: PIN của khách này là <b class="mono">${esc(c.pin)}</b>.</div></div>`:""}
+     </div>`; }).join("")}</div>`;
+}
+function addonForm(c){
+  return `<form id="addonForm" data-cid="${c.id}" class="stack">
+   <div class="row"><div class="fld"><label for="adItem">Dịch vụ phần B</label><select id="adItem">${GROUPS.map(([g,l])=>`<optgroup label="${esc(l)}">${ITEMS.filter(i=>i.group===g).map(i=>`<option value="${i.code}" data-price="${i.price}">${esc(i.name)} — ${vnd(i.price)}${UNIT[i.unit]}</option>`).join("")}</optgroup>`).join("")}</select></div></div>
+   <div class="row"><div class="fld"><label for="adGross">Giá</label><input id="adGross" inputmode="numeric" value="${ITEMS[0].price}"></div><div class="fld"><label for="adDisc">Giảm giá</label><input id="adDisc" inputmode="numeric" value="0"></div><div class="fld"><label for="adPaid">Khách trả</label><input id="adPaid" inputmode="numeric" value="${ITEMS[0].price}"></div></div>
+   <div class="row">${actBtn("addon",`type="submit"`,"Ghi dịch vụ & thu tiền")}</div>
+   <p class="hint" style="margin:0">Người giới thiệu nhận tỷ lệ nhóm × tiền khách thực trả.</p>
+  </form>`;
+}
+
+// ---------- Kịch bản thử có hướng dẫn ----------
+const GUIDE=[
+ {t:"Bán 1 gói, người giới thiệu HP-2K7Q (chị Hạnh)",who:"hoa",r:"quay",done:g=>{const c=g.cid&&S.contract(g.cid);return !!(c&&c.fullyPaidAt);}},
+ {t:"Lập phiếu chọn cho khách",who:"hoa",r:"quay",done:g=>S.s.selections.some(x=>x.contractId===g.cid)},
+ {t:"Bác sĩ khám và chỉ định",who:"bsminh",r:"quay",done:g=>S.s.selections.some(x=>x.contractId===g.cid&&x.lines.some(l=>l.state!=="CHO_BAC_SI"))},
+ {t:"Khách nhập PIN, ghi nhận sử dụng",who:"hoa",r:"quay",done:g=>S.s.wallet.some(w=>w.contractId===g.cid&&w.kind==="REDEEM")},
+ {t:"Xem cổng chị Hạnh: +3.000.000đ đang chờ",who:"kh-hanh",r:"cong-doi-tac",done:g=>!!g.seen5},
+ {t:"Kế toán sang tháng sau và đối soát",who:"bich",r:"ke-toan",done:g=>{const e=guideCom(g);return !!(e&&e.state!=="PENDING");}},
+ {t:"Kế toán lập lô chi trả",who:"bich",r:"ke-toan",done:g=>{const e=guideCom(g);return !!(e&&e.batchId);}},
+ {t:"Ban điều hành duyệt lô (người khác người lập)",who:"lam",r:"ke-toan",done:g=>{const e=guideCom(g);const b=e&&S.s.batches.find(x=>x.id===e.batchId);return !!(b&&["DA_DUYET","DA_TRA"].includes(b.status));}},
+ {t:"Kế toán ghi đã chuyển tiền",who:"bich",r:"ke-toan",done:g=>{const e=guideCom(g);return !!(e&&e.state==="PAID");}},
+ {t:"Xem lại cổng chị Hạnh: khoản đã trả",who:"kh-hanh",r:"cong-doi-tac",done:g=>!!g.seen10}
+];
+function guideCom(g){ return g.cid&&S.s.commissions.find(e=>e.contractId===g.cid&&e.type==="REFERRAL_FLAT"&&e.amount>0); }
+function guideStep(){ const g=S.s.guide||{}; const i=GUIDE.findIndex(st=>!st.done(g)); return i; }
+function guideCard(){
+  const g=S.s.guide; if(!g||!g.on) return `<div class="guide off"><span>Muốn thử theo từng bước có hướng dẫn?</span><button class="btn sm pri" data-guide="start">Bắt đầu kịch bản thử</button></div>`;
+  const i=guideStep();
+  if(i<0) return `<div class="guide"><div><span class="k">Kịch bản thử · hoàn thành</span><b>Bạn đã đi hết một vòng tiền: bán gói → dùng quyền lợi → hoa hồng → đối soát → chi trả.</b></div><div class="row"><button class="btn sm" data-guide="restart">Làm lại</button><button class="btn sm" data-guide="off">Đóng</button></div></div>`;
+  const st=GUIDE[i], who=STAFF.find(x=>x.id===st.who);
+  const here=S.s.actorId===st.who && route()===st.r;
+  return `<div class="guide"><div style="min-width:0"><span class="k">Kịch bản thử · bước ${i+1}/${GUIDE.length}</span><b>${st.t}</b><span class="hint">${here?"Bạn đang ở đúng chỗ — làm theo ô có viền vàng bên dưới.":`Người làm: ${esc(who.name)} (${esc(who.label)})`}</span></div>
+   <div class="row">${here?"":`<button class="btn sm pri" data-guide="go">Đưa tôi tới bước này</button>`}<details class="gsteps"><summary class="btn sm">Các bước</summary><ol>${GUIDE.map((x,k)=>`<li class="${x.done(S.s.guide)?"ok":k===i?"cur":""}">${x.done(S.s.guide)?"✓ ":""}${x.t}</li>`).join("")}</ol></details><button class="btn sm" data-guide="off">Tắt</button></div></div>`;
+}
+function guideGo(){
+  const i=guideStep(); if(i<0) return; const st=GUIDE[i];
+  S.s.actorId=st.who; save();
+  if(S.s.guide.cid) ui.contractId=S.s.guide.cid;
+  if(i===0){ ui.sellOpen=true; ui.sellPrefill={name:"Khách thử "+(S.s.contracts.length+1),l5:String(10000+Math.floor(Math.random()*89999)),ref:"HP-2K7Q",pin:"246810"}; }
+  if(st.r==="cong-doi-tac") ui.ptab=i===9?"earn":"home";
+  if(location.hash.slice(1)===st.r) render(); else location.hash=st.r;
+  setTimeout(()=>{ const el=document.querySelector(".hl"); if(el) el.scrollIntoView({behavior:"smooth",block:"center"}); },80);
+}
+
+// ---------- Hoa hồng & chi trả ----------
+function viewAccounting(){
+  const s=S.s, m=monthOf(S.today), pm=prevMonth(m);
+  const by=st=>s.commissions.filter(e=>e.state===st);
+  const sum=a=>a.reduce((x,e)=>x+e.amount,0);
+  const pendPrev=s.commissions.filter(e=>e.state==="PENDING"&&e.period<=pm);
+  const recent=s.commissions.slice().sort((a,b)=>b.at.localeCompare(a.at)).slice(0,25);
+  return `
+  <div class="head"><h2>Hoa hồng & chi trả</h2><p>Chờ → Khả dụng (qua đối soát tháng) → Trong lô → Đã trả. Lô do kế toán lập, Ban điều hành khác duyệt; không có chuyển khoản tự động. Khấu trừ thuế TNCN đang tắt (D12).</p></div>
+  <div class="grid g5">
+    <div class="card kpi"><h3>Chờ đối soát</h3><div class="v">${shortH(sum(by("PENDING")))}</div><div class="s">${by("PENDING").length} khoản</div></div>
+    <div class="card kpi"><h3>Khả dụng, chưa vào lô</h3><div class="v">${shortH(sum(by("ELIGIBLE")))}</div><div class="s">${by("ELIGIBLE").length} khoản (gồm bù trừ âm)</div></div>
+    <div class="card kpi"><h3>Trong lô chờ duyệt / chuyển</h3><div class="v">${shortH(sum(by("IN_BATCH")))}</div><div class="s">${by("IN_BATCH").length} khoản</div></div>
+    <div class="card kpi"><h3>Đã trả từ đầu chương trình</h3><div class="v">${shortH(sum(by("PAID")))}</div><div class="s">${s.batches.filter(b=>b.status==="DA_TRA").length} lô</div></div>
+  </div>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card stack"><h3>1 · Đối soát kỳ ${vnMonth(pm)}</h3>
+      <p class="hint" style="margin:0">${pendPrev.length} khoản đang chờ thuộc kỳ ${vnMonth(pm)} trở về trước. Hợp đồng đã huỷ tại ngày đối soát bị loại.</p>
+      <div class="row">${actBtn("reconcile",`data-reconcile="${pm}"`,`Đối soát kỳ ${vnMonth(pm)}`)}</div>
+      ${s.commissions.some(e=>e.state==="PENDING"&&e.period===m)?`<div class="hl-box"><b>${s.commissions.filter(e=>e.state==="PENDING"&&e.period===m).length} khoản thuộc kỳ ${vnMonth(m)} (tháng đang chạy)</b> chỉ đối soát được khi tháng kết thúc.<div class="row" style="margin-top:8px"><button class="btn sm ${S.s.guide&&S.s.guide.on&&guideStep()===5?"pri":""}" data-advance="1">Tua ngày sang ${vnDate(nextMonth(m)+"-02")} (bản thử)</button></div></div>`:""}
+      <h3 style="margin-top:8px">2 · Lập lô chi trả</h3>
+      <p class="hint" style="margin:0">Gộp mọi khoản khả dụng theo từng đối tác; đối tác có tổng âm được chuyển sang kỳ sau.</p>
+      <div class="row">${actBtn("batchCreate",`data-batch-create="1"`,"Lập lô")}</div>
+    </div>
+    <div class="card"><h3>3 · Lô chi trả</h3>
+      <div class="list">${s.batches.slice(0,8).map(b=>`<div class="li" style="flex-wrap:wrap"><span><b class="mono">${b.code}</b> · ${vndH(b.total)}<div class="hint">Lập: ${esc(b.createdBy)} ${vnDate(b.createdAt)}${b.approvedBy?` · ${b.status==="TRA_LAI"?"Trả lại":"Duyệt"}: ${esc(b.approvedBy)}`:""}${b.paidAt?` · chuyển ${vnDate(b.paidAt)}`:""}</div>${b.requests?`<div class="hint">${b.requests.length} giấy đề nghị thanh toán: ${b.requests.slice(0,3).map(r=>r.code).join(", ")}${b.requests.length>3?"…":""}</div>`:""}</span>
+        <span class="amt">${b.status==="CHO_DUYET"?`<span class="pill pend">Chờ duyệt</span> ${actBtn("batchApprove",`data-approve="${b.id}"`,"Duyệt",{sm:true,avoid:b.createdBy})} ${S.can("batchApprove")&&S.actor().name!==b.createdBy?`<button class="btn sm" data-reject="${b.id}">Trả lại</button>`:""}`:b.status==="DA_DUYET"?`<span class="pill pend">Đã duyệt</span> ${actBtn("batchPay",`data-pay="${b.id}"`,"Ghi đã chuyển",{sm:true})}`:b.status==="DA_TRA"?`<span class="pill pos">Đã trả</span>`:`<span class="pill mute">Trả lại</span>`}</span></div>`).join("")||`<div class="hint">Chưa có lô.</div>`}</div>
+      <p class="hint">Người lập lô không được tự duyệt: nút Duyệt sẽ mời chuyển sang một người khác trong Ban điều hành.</p></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>Bút toán hoa hồng gần nhất</h3>
+    <div class="tbl"><table><thead><tr><th>Ngày</th><th>Đối tác</th><th>Loại</th><th>Diễn giải</th><th>Kỳ</th><th class="r">Căn cứ</th><th class="r">Số tiền</th><th>Trạng thái</th></tr></thead><tbody>
+    ${recent.map(e=>`<tr><td>${vnDate(e.at)}</td><td>${esc(S.partnerName(e.partnerId))}</td><td>${TYPE_LABEL[e.type]}</td><td>${esc(e.note||"")}${e.rateBps?` <span class="hint">· ${e.rateBps/100}%</span>`:""}</td><td>${vnMonth(e.period)}</td><td class="r">${e.basis?vndH(e.basis):"—"}</td><td class="r" style="color:${e.amount<0?"var(--neg)":"inherit"}">${vndH(e.amount)}</td><td>${cPill(e)}</td></tr>`).join("")}
+    </tbody></table></div></div>`;
+}
+
+// ---------- Cổng đối tác ----------
+const ICON={home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',wallet:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M16 13h2M3 10h18"/></svg>',earn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>',seat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/></svg>',me:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>'};
+function viewPortal(){
+  const s=S.s;
+  const locked=actorPartnerId();
+  if(locked) ui.portalPartner=locked;
+  if(!ui.portalPartner||!S.partner(ui.portalPartner)) ui.portalPartner=(s.partners.find(p=>p.code==="HP-2K7Q")||s.partners[0]).id;
+  const p=S.partner(ui.portalPartner), me=S.person(p.customerId);
+  const seat2=s.seats.s2.find(x=>x.partnerId===p.id), seat5=s.seats.s5.find(x=>x.partnerId===p.id), seat=seat5||seat2;
+  const tabs=[["home","Trang chủ"],["wallet","Ví"],["earn","Thu nhập"],...(seat?[["seat","Quyền lợi"]]:[]),["me","Tôi"]];
+  if(!tabs.some(t=>t[0]===ui.ptab)) ui.ptab="home";
+  return `
+  <div class="head"><h2>Cổng đối tác</h2><p>Màn hình điện thoại của đối tác. Đối tác chỉ thấy dữ liệu của chính mình: tên viết tắt và SĐT che của người mình giới thiệu, không có hồ sơ y khoa, không có cây tuyến dưới, không có bảng xếp hạng.</p></div>
+  ${locked?`<div class="banner" style="background:var(--a50);border-color:var(--a100)">Bạn đang đăng nhập là khách/đối tác: chỉ thấy dữ liệu của chính mình.</div>`:`<div class="row" style="margin-bottom:14px"><div class="fld" style="max-width:420px"><label for="pp">Xem cổng của</label><select id="pp">${s.partners.slice().sort((a,b)=>S.partnerName(a.id).localeCompare(S.partnerName(b.id),"vi")).map(x=>`<option value="${x.id}" ${x.id===p.id?"selected":""}>${esc(S.partnerName(x.id))} · ${x.code}</option>`).join("")}</select></div></div>`}
+  <div class="portal-wrap">
+   <div class="phone">
+     <div class="ph-top"><div><div class="hi">Xin chào</div><div class="nm">${esc(me.name.split(" ").slice(-1)[0])}</div></div><span class="pill ${seat5?"pend":seat2?"pos":"mute"}" ${seat5?'style="background:var(--g100);color:var(--ink)"':""}>${seat5?"Đối tác Cao cấp 5%":seat2?"Đối tác Quyền lợi 2%":"Đối tác"}</span></div>
+     ${portalTab(p,me,seat,!!seat5)}
+     <nav class="ptabs">${tabs.map(([k,l])=>`<button data-ptab="${k}" class="${ui.ptab===k?"on":""}" aria-label="${l}">${ICON[k]}<span>${l}</span></button>`).join("")}</nav>
+   </div>
+   ${locked?"":`<div class="side-note card"><h3>Thử nhanh</h3>
+     <ol class="hint" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px">
+       <li>Vào <a href="#quay">Quầy</a>, bán một gói với mã <b class="mono">HP-2K7Q</b> và thu đủ → quay lại đây: chị Hạnh có thêm +3.000.000đ "Chờ đối soát".</li>
+       <li>Đổi ngày hệ thống sang tháng sau → <a href="#ke-toan">Hoa hồng & chi trả</a> → Đối soát → khoản chuyển "Khả dụng".</li>
+       <li>Lập lô (Bích) → duyệt (BS. Lam) → ghi đã chuyển → khoản chuyển "Đã trả".</li>
+       <li>Huỷ hợp đồng đã trả hoa hồng → xuất hiện bút toán −3.000.000đ bù trừ kỳ sau.</li>
+     </ol></div>`}
+  </div>`;
+}
+function portalTab(p,me,seat,is5){
+  const s=S.s;
+  const own=s.contracts.filter(c=>c.ownerPartnerId===p.id).sort((a,b)=>(b.status==="ACTIVE")-(a.status==="ACTIVE")||b.signedAt.localeCompare(a.signedAt));
+  const c=own[0]; const bal=c?S.balance(c.id):0;
+  const e=S.earnings(p.id); const kpi=S.kpiCount(p.id);
+  const walletCard=`<div class="wallet"><div class="bd">HỒNG PHÚC ALLIANCE</div><div class="wl">Ví quyền lợi</div><div class="wv num">${vnd(bal)}<small> / 30.000.000đ</small></div><div class="wbar"><i style="width:${bal/ENTITLEMENT*100}%"></i></div><div class="wf2"><span>${c&&c.expiresAt?"Hạn "+vnDate(c.expiresAt):c?"Chưa kích hoạt":"—"}</span><b>${p.code}</b></div></div>`;
+  const items=e.entries.slice().sort((a,b)=>b.at.localeCompare(a.at));
+  const line=x=>{ const cc=x.contractId?S.contract(x.contractId):null; const buyer=cc?S.person(S.partner(cc.ownerPartnerId).customerId):null;
+    const who=buyer?`${initials(buyer.name)} (SĐT ${maskPhone(buyer.last5)})`:""; const what=x.type==="REFERRAL_FLAT"?`${who} thanh toán đủ gói`:x.type==="ADDON_PCT"?`${who} làm thêm dịch vụ — ${x.rateBps/100}%`:x.note;
+    const when=x.state==="PENDING"?`Chờ đối soát cuối ${vnMonth(x.period)}`:x.state==="ELIGIBLE"?"Khả dụng — vào lô chi trả kỳ tới":x.state==="IN_BATCH"?"Đang trong lô chi trả":x.state==="PAID"?`Đã trả ${vnDate(x.paidAt)}`:"Đã huỷ";
+    return `<div class="li"><span>${esc(what)}<div class="hint">${when}</div></span><span class="amt" style="color:${x.amount<0?"var(--neg)":x.state==="PAID"?"var(--pos)":"var(--pend)"}">${x.amount>0?"+":""}${vnd(x.amount)}</span></div>`; };
+  if(ui.ptab==="home"){
+    const target=kpi>=50?60:50, pct=Math.min(100,kpi/60*100);
+    const m=monthOf(S.today), req=is5?3:1, mc=S.kpiCount(p.id,m), ma=s.activities.filter(a=>a.partnerId===p.id&&a.month===m).length;
+    return `${walletCard}
+     <div class="psec"><h4>Thu nhập</h4><div class="earn"><div class="pe"><div class="k">Chờ</div><div class="v num">${short(e.pending)}</div></div><div class="av"><div class="k">Khả dụng</div><div class="v num">${short(e.available)}</div></div><div><div class="k">Đã nhận</div><div class="v num">${short(e.paid)}</div></div></div>
+       <div style="margin-top:8px">${items.slice(0,3).map(line).join("")||`<div class="hint">Chưa có khoản nào. Chia sẻ mã ${p.code} để bắt đầu.</div>`}</div></div>
+     <div class="psec"><h4>Hành trình lên hạng</h4><div class="journey"><div class="tr"></div><div class="fi" style="width:${pct}%"></div><div class="m ${kpi===0?"me":""}" style="left:2%"></div><div class="m me" style="left:${Math.max(2,Math.min(98,pct))}%"></div><div class="m gd" style="left:83.3%"></div><div class="m gd" style="left:98%"></div><div class="t" style="left:4%">0</div><div class="t" style="left:${Math.max(10,Math.min(70,pct))}%">${kpi} hợp đồng</div><div class="t" style="left:83%">50</div><div class="t" style="left:94%">60</div></div><div class="hint">Còn ${Math.max(0,target-kpi)} hợp đồng hợp lệ tới mốc ${target}. Mốc là điều kiện xét công nhận, không phải cam kết thu nhập.</div></div>
+     ${seat?`<div class="psec"><h4>Tháng này — duy trì quyền lợi</h4><div class="rings">${ring(mc,req,"Hợp đồng")}${ring(ma,1,"Nhiệm vụ")}</div><div class="hint" style="margin-top:6px">Thiếu hợp đồng: chỉ nhắc và lập kế hoạch khắc phục. Thiếu nhiệm vụ 2 tháng liên tiếp mới mở quy trình giải trình.</div></div>`:""}
+     <div class="psec"><h4>Chia sẻ mã giới thiệu</h4><div style="display:flex;gap:12px;align-items:center"><div class="qrbox" id="qr"></div><div><div class="mono" style="font-size:18px;font-weight:700">${p.code}</div><div class="hint">Đưa mã tại quầy để nhân viên ghi nhận đúng người giới thiệu.</div></div></div></div>`;
+  }
+  if(ui.ptab==="wallet"){
+    const ent=c?s.wallet.filter(w=>w.contractId===c.id):[];
+    return `${walletCard}<div class="psec"><h4>Sao kê ví · ${c?c.code:""}</h4>${ent.map(w=>`<div class="li"><span>${esc(w.label)}<div class="hint">${vnDate(w.at)}</div></span><span class="amt" style="color:${w.amount<0?"var(--ink)":"var(--pos)"}">${w.amount>0?"+":""}${vnd(w.amount)}</span></div>`).join("")||`<div class="hint">Ví mở khi thanh toán đủ 15.000.000đ.</div>`}</div>
+     <div class="psec"><h4>Nếu dừng hôm nay</h4><div class="hint">Phần chưa dùng được hoàn theo hợp đồng: 15.000.000 × số dư / 30.000.000 = <b class="num">${vnd(c&&c.status==="ACTIVE"?F.refundUnused(bal):0)}đ</b>, trong 15 ngày làm việc.</div></div>`;
+  }
+  if(ui.ptab==="earn"){
+    return `<div class="psec"><h4>Thu nhập</h4><div class="earn"><div class="pe"><div class="k">Chờ</div><div class="v num">${short(e.pending)}</div></div><div class="av"><div class="k">Khả dụng</div><div class="v num">${short(e.available)}</div></div><div><div class="k">Đã nhận</div><div class="v num">${short(e.paid)}</div></div></div></div>
+     <div class="psec"><h4>Từng khoản (${items.length})</h4>${items.slice(0,40).map(line).join("")||`<div class="hint">Chưa có khoản nào.</div>`}<div class="hint" style="margin-top:8px">Thuế TNCN khấu trừ: 0đ (chưa áp dụng). Người được giới thiệu chỉ hiện tên viết tắt và 3 số cuối SĐT.</div></div>`;
+  }
+  if(ui.ptab==="seat"){
+    const months=[3,2,1,0].map(k=>addMonths(S.today.slice(0,7)+"-01",-k).slice(0,7));
+    const req=is5?3:1;
+    return `<div class="psec"><h4>Suất quyền lợi</h4><div style="font-size:20px;font-weight:800">${is5?"Suất 5%":"Suất 2%"} · số ${seat.no}/${is5?5:10}</div><div class="hint">${esc(seat.path)} · hưởng từ ${vnDate(seat.from)} · đang hiệu lực</div></div>
+     <div class="psec"><h4>Duy trì 4 tháng gần nhất</h4>${months.map(m=>{ const mc=S.kpiCount(seat.partnerId,m), ma=s.activities.filter(a=>a.partnerId===seat.partnerId&&a.month===m).length; return `<div class="li"><span>${vnMonth(m)}</span><span class="amt"><span class="pill ${mc>=req?"pos":"pend"}">HĐ ${mc}/${req}</span> <span class="pill ${ma>=1?"pos":"neg"}">NV ${ma}/1</span></span></div>`; }).join("")}</div>
+     <div class="psec"><h4>Phòng dữ liệu kỳ</h4><div class="hint">Bảng thu chi kỳ lợi nhuận, chứng từ và nút phản hồi trong hạn sẽ có ở giai đoạn P4. ${is5?"Tiến độ mục tiêu hỗ trợ thu hồi 570tr: mục tiêu hỗ trợ, không phải bảo lãnh hoàn vốn.":""}</div></div>`;
+  }
+  return `<div class="psec"><h4>Tài khoản</h4><div class="li"><span>Họ tên</span><span class="amt">${esc(me.name)}</span></div><div class="li"><span>SĐT</span><span class="amt">${maskPhone(me.last5)}</span></div><div class="li"><span>Mã đối tác</span><span class="amt mono">${p.code}</span></div><div class="li"><span>Tham gia</span><span class="amt">${vnDate(p.joinedAt)}</span></div><div class="li"><span>Tài khoản nhận tiền</span><span class="amt">Mã hoá · ****</span></div></div>
+   <div class="psec"><h4>Hợp đồng của tôi</h4>${own.map(x=>`<div class="li"><span class="mono">${x.code}</span><span class="amt">${statusPill(x)}</span></div>`).join("")}</div>`;
+}
+function ring(v,req,label){ const pct=Math.min(1,v/req), r=26, C=2*Math.PI*r; const col=v>=req?"var(--pos)":"var(--pend)";
+  return `<div style="display:flex;gap:8px;align-items:center"><svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="${label} ${v}/${req}"><circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--line)" stroke-width="7"/><circle cx="32" cy="32" r="${r}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C*pct} ${C}" transform="rotate(-90 32 32)"/></svg><div><b class="num">${v}/${req}</b><div class="hint">${label}</div></div></div>`; }
+
+// ---------- Suất ----------
+function viewSeats(){
+  const s=S.s, m=monthOf(S.today);
+  const all=[...s.seats.s2.map(x=>({...x,rate:"2%",req:1})),...s.seats.s5.map(x=>({...x,rate:"5%",req:3}))];
+  const months=[3,2,1,0].map(k=>addMonths(m+"-01",-k).slice(0,7));
+  return `<div class="head"><h2>Suất quyền lợi 2% / 5%</h2><p>Minh hoạ giai đoạn P3: vòng duy trì tháng và quy trình nhắc. Hệ thống không bao giờ tự chấm dứt; chỉ Ban điều hành quyết định sau khi đủ các mốc.</p></div>
+  <div class="grid g2"><div class="card"><h3>Sơ đồ ghế</h3>${seatMap()}</div>
+  <div class="card"><h3>Công nhận suất mới</h3><p class="hint">Đăng ký suất 2% thứ 11 hoặc suất 5% thứ 6 tự vào danh sách chờ (T10). Wizard công nhận phương án A/B/5% thuộc giai đoạn P3.</p>
+    <div class="stack hint"><div>Phương án A: 50 hợp đồng gói hợp lệ ghi nhận trực tiếp, danh sách hai bên ký.</div><div>Phương án B: giá trị 1.500.000.000 · giá 750.000.000 · cấn trừ 250.000.000 · thực đóng 500.000.000 (cọc 50tr + 450tr trong 1 tháng).</div><div>Cao cấp 5%: mốc 900.000.000 · cấn trừ 330.000.000 · thực đóng 570.000.000 (cọc 50tr + 520tr).</div></div></div></div>
+  <div class="card" style="margin-top:14px"><h3>Bản đồ duy trì (4 tháng)</h3>
+   <div class="tbl"><table><thead><tr><th>Đối tác</th><th>Suất</th>${months.map(x=>`<th>${vnMonth(x)}</th>`).join("")}<th>Đề xuất hệ thống</th><th></th></tr></thead><tbody>
+   ${all.map(x=>{ const ev=evaluateMaintenance(months.map(mm=>({contracts:S.kpiCount(x.partnerId,mm),activities:s.activities.filter(a=>a.partnerId===x.partnerId&&a.month===mm).length,planGiven:true})),x.req); const last=ev[ev.length-1];
+     return `<tr><td>${esc(S.partnerName(x.partnerId))}</td><td>${x.rate} · số ${x.no}</td>${months.map((mm,i)=>{ const mc=S.kpiCount(x.partnerId,mm), ma=s.activities.filter(a=>a.partnerId===x.partnerId&&a.month===mm).length; return `<td><span class="pill ${mc>=x.req?"pos":"pend"}">HĐ ${mc}</span> <span class="pill ${ma?"pos":"neg"}">NV ${ma}</span></td>`; }).join("")}<td><span class="pill ${last.status==="DAT"?"pos":last.status==="NHAC"||last.status==="KHONG_TINH"?"pend":"neg"}">${last.status==="DAT"?"Đạt":last.status==="NHAC"?"Chỉ nhắc":last.status==="WARNED"?"Soạn thông báo nhắc":last.status==="MO_VU_VIEC"?"Mở vụ việc":"Không tính"}</span><div class="hint">${esc(last.note)}</div></td><td>${actBtn("activity",`data-activity="${x.partnerId}"`,"Ghi nhận nhiệm vụ",{cls:"",sm:true})}</td></tr>`; }).join("")}
+   </tbody></table></div><p class="hint">Tháng hiện tại còn đang chạy; đề xuất chỉ để Ban điều hành xem trước.</p></div>`;
+}
+
+// ---------- Mô phỏng ----------
+const SIM_DEF=[["packs","Gói bán / tháng",42,0,150,1,""],["cost","Giá vốn quyền lợi / gói",2000000,0,15000000,500000,"đ"],["refRate","Tỷ lệ gói có người giới thiệu",90,0,100,5,"%"],["staffPct","Chi nhân sự theo doanh số tổng",38,0,60,1,"%"],["fixed","Lương cố định / tháng",44000000,0,200000000,1000000,"đ"],["other","Mặt bằng, marketing, khác / tháng",60000000,0,500000000,5000000,"đ"],["addonRate","Tỷ lệ khách mua thêm ngoài gói",20,0,100,5,"%"],["addonAvg","Giá trị TB mua thêm",15000000,0,80000000,1000000,"đ"],["addonCogs","Giá vốn dịch vụ ngoài gói",40,0,90,5,"%"],["addonBps","Thù lao ngoài gói",12,10,15,1,"%"],["s2","Số suất 2% hiệu lực",7,0,10,1,""],["s5","Số suất 5% hiệu lực",3,0,5,1,""]];
+function viewSim(){
+  if(!ui.sim) ui.sim=Object.fromEntries(SIM_DEF.map(d=>[d[0],d[2]]));
+  const v=ui.sim;
+  const pkgRev=v.packs*PKG_PRICE, addonRev=Math.round(v.packs*v.addonRate/100*v.addonAvg), total=pkgRev+addonRev;
+  const lines=[["Thu gói",pkgRev],["Thu dịch vụ ngoài gói",addonRev],["Hoa hồng giới thiệu 3tr",-Math.round(v.packs*v.refRate/100)*REFERRAL_FLAT],["Thù lao ngoài gói",-Math.round(addonRev*v.refRate/100*v.addonBps/100)],["Giá vốn quyền lợi",-v.packs*v.cost],["Giá vốn ngoài gói",-Math.round(addonRev*v.addonCogs/100)],[`Nhân sự ${v.staffPct}% doanh số tổng`,-Math.round(total*v.staffPct/100)],["Lương cố định",-v.fixed],["Chi phí khác",-v.other]];
+  const profit=lines.reduce((a,l)=>a+l[1],0); const shareRate=v.s2*2+v.s5*5; const share=profit>0?Math.round(profit*shareRate/100):0;
+  const per=PKG_PRICE-REFERRAL_FLAT-Math.round(PKG_PRICE*v.staffPct/100)-v.cost;
+  const breakEven=per>0?Math.ceil((v.fixed+v.other)/per):null;
+  const max=Math.max(...lines.map(l=>Math.abs(l[1])),Math.abs(profit),1);
+  let run=0;
+  return `<div class="head"><h2>Mô phỏng kinh tế đơn vị</h2><p>Kéo thanh trượt để xem chương trình lãi hay lỗ mỗi tháng trước khi bán thêm suất. Mặc định "doanh số tổng" = thực thu chương trình đối tác, không gồm tiền đóng suất (D5).</p></div>
+  <div class="split"><div class="card stack">${SIM_DEF.map(([k,l,d,mn,mx,st,u])=>`<div class="fld"><label for="sim-${k}">${l}: <b class="num">${u==="đ"?vnd(v[k])+"đ":v[k]+(u||"")}</b></label><input id="sim-${k}" data-sim="${k}" type="range" min="${mn}" max="${mx}" step="${st}" value="${v[k]}"></div>`).join("")}<button class="btn" data-sim-reset="1">Về giả định mặc định</button></div>
+  <div class="stack"><div class="grid g3">
+    <div class="card kpi"><h3>Lợi nhuận tháng (ước)</h3><div class="v" style="color:${profit<0?"var(--neg)":"var(--pos)"}">${shortH(profit)}</div></div>
+    <div class="card kpi"><h3>Phần của các suất (${shareRate}%)</h3><div class="v">${shortH(share)}</div><div class="s">Bệnh viện giữ ${short(profit-share)}</div></div>
+    <div class="card kpi"><h3>Đóng góp mỗi gói</h3><div class="v">${shortH(per)}</div><div class="s">${breakEven?`Hoà vốn chi cố định ≈ ${breakEven} gói/tháng`:"Mỗi gói đang lỗ trước chi phí cố định"}</div></div></div>
+   <div class="card"><h3>Thác nước tháng</h3><div class="bars wf">${lines.map(([l,a])=>{ const from=run; run+=a; const left=Math.min(from,run), w=Math.abs(a); const base=Math.min(0,...lines.map(()=>0)); return `<div class="bar"><span>${l}</span><div class="track"><i class="${a<0?"neg-i":"pos-i"}" style="left:${(left/(max*1.15))*50+50}%;width:${w/(max*1.15)*50}%"></i></div><b class="num" style="text-align:right;color:${a<0?"var(--neg)":"inherit"}">${short(a)}</b></div>`; }).join("")}<div class="bar"><b>Lợi nhuận</b><div class="track"><i class="tot-i" style="left:${(Math.min(0,profit)/(max*1.15))*50+50}%;width:${Math.abs(profit)/(max*1.15)*50}%"></i></div><b class="num" style="text-align:right">${short(profit)}</b></div></div>
+   <p class="hint">Trục giữa là 0. Ví dụ ở mục 9 đặc tả: 1 gói, không mua thêm, giá vốn 2tr, 38% doanh số tổng → đóng góp 4.300.000đ/gói. Giá vốn thật của 30tr giá trị thẩm mỹ thường cao hơn 2tr; hãy kéo thử.</p></div></div></div>`;
+}
+
+// ---------- Kiểm thử số vàng ----------
+function freshStore(){ const st=new Store({v:1,today:"2026-11-02",actorId:"hoa",seq:{},people:[],partners:[],contracts:[],pkgPayments:[],wallet:[],selections:[],addons:[],commissions:[],batches:[],activities:[],seats:{s2:[],s5:[]},waitlist:[],audit:[],mech:{version:1}}); return st; }
+function as(st,id,fn){ const p=st.s.actorId; st.s.actorId=id; try{ return fn(); } finally{ st.s.actorId=p; } }
+function expectThrow(fn){ try{ fn(); return false; }catch(e){ return e.message; } }
+const TESTS=[
+ ["T1","Gói đã dùng 18tr, số dư 12tr, hết hạn → hoàn 6.000.000đ, hạn 15 ngày làm việc",()=>{
+   const st=freshStore(); const c=st.sell({buyerName:"Khách T1",last5:"11111",pin:"111111",firstPayment:PKG_PRICE});
+   st.s.wallet.push({id:"x",contractId:c.id,kind:"REDEEM",amount:-18000000,label:"dùng",at:st.today});
+   const refund=as(st,"bich",()=>st.endWithRefund(c.id,"EXPIRED"));
+   return [refund===6000000 && workingDaysBetween(st.today,c.refundDueAt)===15, `hoàn ${vnd(refund)}đ · hạn ${vnDate(c.refundDueAt)} (${workingDaysBetween(st.today,c.refundDueAt)} ngày LV)`]; }],
+ ["T2","Suất 2% phương án B: nộp 500tr, đã dùng 600tr → hoàn 300.000.000đ",()=>{ const v=F.settle2B({paid:500000000,usedValue:600000000}); return [v===300000000,vnd(v)+"đ"]; }],
+ ["T3","Phương án B: mới cọc 50tr, chưa dùng, xin dừng → hoàn 50.000.000đ (không mất cọc)",()=>{ const v=F.settle2B({paid:50000000,usedValue:0}); return [v===50000000,vnd(v)+"đ"]; }],
+ ["T4","Suất 5% (tổng giá trị 1,8 tỷ): nộp 570tr + 12tr còn phải trả − 540tr giá trị × 570/1.800 → 411.000.000đ",()=>{ const v=F.settle5({paid:570000000,owed:12000000,received:540000000}); return [v===411000000,vnd(v)+"đ"]; }],
+ ["T5","Suất 2%: Q1 lỗ 50tr → 0đ; Q2 lãi 200tr → 4.000.000đ (không chuyển lỗ)",()=>{ const q1=F.profitShare({bps:200,profit:-50000000,activeDays:90,periodDays:90}), q2=F.profitShare({bps:200,profit:200000000,activeDays:91,periodDays:91}); return [q1===0&&q2===4000000,`Q1 ${vnd(q1)}đ · Q2 ${vnd(q2)}đ`]; }],
+ ["T6","Suất 2% bắt đầu ngày 16 của kỳ 30 ngày, lợi nhuận 300tr → 3.000.000đ",()=>{ const v=F.profitShare({bps:200,profit:300000000,activeDays:15,periodDays:30}); return [v===3000000,vnd(v)+"đ"]; }],
+ ["T7","Tháng có nhiệm vụ nhưng 0 hợp đồng → chỉ nhắc, không chuyển WARNED",()=>{ const r=evaluateMaintenance([{contracts:0,activities:1}],1)[0]; return [r.status==="NHAC",r.status+" — "+r.note]; }],
+ ["T8","M1, M2 không nhiệm vụ; M2 bệnh viện không giao kế hoạch → M2 không tính, không mở vụ việc",()=>{ const r=evaluateMaintenance([{contracts:1,activities:0},{contracts:1,activities:0,planGiven:false}],1); return [r[1].status==="KHONG_TINH"&&!r.some(x=>x.status==="MO_VU_VIEC"),r.map(x=>x.status).join(" → ")]; }],
+ ["T9","M1, M2 không nhiệm vụ (có kế hoạch); giải trình nộp ngày làm việc thứ 11 → cho phép Ban điều hành quyết định; quyền hưởng tới ngày hiệu lực vẫn tính",()=>{
+   const r=evaluateMaintenance([{contracts:1,activities:0},{contracts:1,activities:0}],1); const notice="2026-12-01"; const day11=addWorkingDays(notice,11); const d=terminationDecisionAllowed(notice,day11);
+   const prorata=F.profitShare({bps:200,profit:300000000,activeDays:10,periodDays:30});
+   return [r[1].status==="MO_VU_VIEC"&&d.allowed&&prorata===2000000,`${r[1].status} · hạn giải trình ${vnDate(d.deadline)} · nộp ${vnDate(day11)} → ${d.reason} · pro-rata 10/30 ngày = ${vnd(prorata)}đ`]; }],
+ ["T10","Đăng ký suất 2% thứ 11 → từ chối, vào danh sách chờ",()=>{ const seats=Array.from({length:10},(_,i)=>({no:i+1})); const r=seats.length>=10?"DANH_SACH_CHO":"OK"; return [r==="DANH_SACH_CHO","10/10 ghế đã có chủ → "+r]; }],
+ ["T11","Một hợp đồng gói gán cho 2 đối tác → bị chặn",()=>{
+   const st=freshStore(); const a=st.sell({buyerName:"Giới thiệu A",last5:"22222",pin:"222222",firstPayment:PKG_PRICE}); const b=st.sell({buyerName:"Giới thiệu B",last5:"33333",pin:"333333",firstPayment:PKG_PRICE});
+   const pa=st.partner(a.ownerPartnerId), pb=st.partner(b.ownerPartnerId);
+   const c=st.sell({buyerName:"Khách T11",last5:"44444",pin:"444444",referralCode:pa.code,firstPayment:PKG_PRICE});
+   const err=expectThrow(()=>st.activate(c,st.today)); const n=st.s.commissions.filter(e=>e.contractId===c.id&&e.type==="REFERRAL_FLAT"&&e.amount>0).length;
+   return [!!err&&n===1&&typeof c.attributedPartnerId==="string",`Hợp đồng chỉ có 1 trường người giới thiệu (${pa.code}); cố ghi khoản thứ 2 → "${err}"`]; }],
+ ["T12","Trả 10/15tr chưa đủ điều kiện; trả đủ → đủ điều kiện tại đối soát; hoàn tiền sau khi trả → −3.000.000đ bù trừ kỳ sau",()=>{
+   const st=freshStore(); const ref=st.sell({buyerName:"Người giới thiệu",last5:"55555",pin:"555555",firstPayment:PKG_PRICE}); const pr=st.partner(ref.ownerPartnerId);
+   const c=st.sell({buyerName:"Khách T12",last5:"66666",pin:"666666",referralCode:pr.code,firstPayment:10000000});
+   const a=st.s.commissions.filter(e=>e.contractId===c.id).length===0;
+   st.collect(c.id,5000000); const e=st.s.commissions.find(x=>x.contractId===c.id); const b1=e.state==="PENDING";
+   st.s.today="2026-12-02"; as(st,"bich",()=>st.reconcile("2026-11")); const b2=e.state==="ELIGIBLE";
+   const lot=as(st,"bich",()=>st.createBatch()); as(st,"lam",()=>st.approveBatch(lot.id)); as(st,"bich",()=>st.payBatch(lot.id));
+   st.s.today="2026-12-10"; as(st,"bich",()=>st.cancel(c.id));
+   const off=st.s.commissions.find(x=>x.reversalOf===e.id);
+   return [a&&b1&&b2&&e.state==="PAID"&&off&&off.amount===-3000000&&off.period==="2027-01",`10tr: không có khoản · đủ 15tr: Chờ · đối soát: Khả dụng · đã trả · huỷ: ${off?vnd(off.amount)+"đ kỳ "+vnMonth(off.period):"thiếu"}`]; }],
+ ["T13","Dịch vụ ngoài gói 20tr, giảm 2tr, tỷ lệ 12% → 2.160.000đ",()=>{
+   const st=freshStore(); const ref=st.sell({buyerName:"Người giới thiệu",last5:"77777",pin:"777777",firstPayment:PKG_PRICE});
+   const c=st.sell({buyerName:"Khách T13",last5:"88888",pin:"888888",referralCode:st.partner(ref.ownerPartnerId).code,firstPayment:PKG_PRICE});
+   st.addon(c.id,{itemCode:"B05-02",name:"Sa trễ độ 2",gross:20000000,discount:2000000,paid:18000000});
+   const e=st.s.commissions.find(x=>x.type==="ADDON_PCT"); return [e.amount===2160000,`12% × ${vnd(e.basis)}đ = ${vnd(e.amount)}đ`]; }],
+ ["T14","Suất 5% đã cấn trừ 330tr; sau đó 60 hợp đồng thật được ghi nhận → không chi lại 180tr/150tr đã cấn trừ",()=>{
+   const offsetUsed={directBonus:180000000,milestone:150000000}; const realContracts=60;
+   const directPayable=Math.max(0,realContracts*REFERRAL_FLAT-offsetUsed.directBonus), milestonePayable=0; // mốc 5% đã cấn trừ trọn
+   return [directPayable===0&&milestonePayable===0,`60 × 3tr = 180tr đã cấn trừ → chi thêm ${vnd(directPayable)}đ; thưởng mốc chi thêm ${vnd(milestonePayable)}đ`]; }],
+ ["T15","Chọn gói A07 (15tr giá trị) → ví còn 15.000.000đ",()=>{
+   const st=freshStore(); const c=st.sell({buyerName:"Khách T15",last5:"99999",pin:"999999",firstPayment:PKG_PRICE});
+   st.saveSelection(c.id,{bundle:"A07",options:[],extras:[]}); const sel=st.s.selections[0]; as(st,"bsminh",()=>st.prescribe(sel.id,[{ok:true,qty:1}]));
+   st.redeem(sel.id,0,{pin:"999999"}); const b=st.balance(c.id); return [b===15000000,`còn ${vnd(b)}đ`]; }],
+ ["T16","Ghi nhận vượt ví 5tr không có đồng ý trước → bị chặn",()=>{
+   const st=freshStore(); const c=st.sell({buyerName:"Khách T16",last5:"12345",pin:"123456",firstPayment:PKG_PRICE});
+   st.s.wallet.push({id:"y",contractId:c.id,kind:"REDEEM",amount:-25000000,label:"dùng",at:st.today});
+   st.saveSelection(c.id,{bundle:null,options:[],extras:[{code:"B02-02",qty:1}]}); const sel=st.s.selections[0];
+   sel.lines[0].unitValue=10000000; as(st,"bsminh",()=>st.prescribe(sel.id,[{ok:true,qty:1}]));
+   const err=expectThrow(()=>st.redeem(sel.id,0,{pin:"123456",overageConsent:false})); const bal=st.balance(c.id);
+   return [!!err&&bal===5000000,`"${err}" · số dư giữ nguyên ${vnd(bal)}đ`]; }],
+ ["T17","Yêu cầu tính thưởng F1 từ doanh số F2 khi ALLOW_SECOND_LEVEL=false → từ chối, ghi log",()=>{
+   const st=freshStore(); const r=st.requestSecondLevel(); return [r.ok===false&&st.s.audit[0].action==="CHẶN CẤP 2",`${r.reason} · log: ${st.s.audit[0].detail}`]; }],
+ ["Q7","Người mua tự giới thiệu chính mình → bị chặn",()=>{
+   const st=freshStore(); const c=st.sell({buyerName:"Tự giới thiệu",last5:"24680",pin:"246800",firstPayment:PKG_PRICE}); const code=st.partner(c.ownerPartnerId).code;
+   const err=expectThrow(()=>st.sell({buyerName:"Tự giới thiệu",last5:"24680",pin:"246800",referralCode:code,firstPayment:PKG_PRICE})); return [!!err,`"${err}"`]; }],
+ ["RBAC","Người lập lô không được tự duyệt; bác sĩ không được duyệt lô",()=>{
+   const st=freshStore(); const ref=st.sell({buyerName:"GT",last5:"13579",pin:"135790",firstPayment:PKG_PRICE});
+   st.sell({buyerName:"KH",last5:"97531",pin:"975310",referralCode:st.partner(ref.ownerPartnerId).code,firstPayment:PKG_PRICE});
+   st.s.today="2026-12-02"; as(st,"lam",()=>st.reconcile("2026-11")); const lot=as(st,"lam",()=>st.createBatch());
+   const e1=expectThrow(()=>as(st,"lam",()=>st.approveBatch(lot.id))); const e2=expectThrow(()=>as(st,"bsminh",()=>st.approveBatch(lot.id)));
+   return [!!e1&&!!e2,`Tự duyệt: "${e1}" · Bác sĩ: "${e2}"`]; }]
+];
+function viewTests(){
+  const res=ui.testRun;
+  const pass=res?res.filter(r=>r.ok).length:0;
+  return `<div class="head"><h2>Kiểm thử số vàng</h2><p>Bộ test mục 13 đặc tả, chạy trên chính bộ máy tính tiền của trang này (mỗi test dùng một kho dữ liệu riêng, không đụng dữ liệu bạn đang thử). Kèm 2 test bổ sung: tự giới thiệu (Q7) và tách quyền duyệt.</p></div>
+  <div class="row" style="margin-bottom:14px"><button class="btn pri" data-run-tests="1">Chạy ${TESTS.length} test</button>${res?`<span class="pill ${pass===res.length?"pos":"neg"}">${pass}/${res.length} đạt</span>`:""}</div>
+  <div class="tbl"><table><thead><tr><th>Mã</th><th>Kịch bản → kết quả đúng</th><th>Kết quả chạy</th><th></th></tr></thead><tbody>
+  ${TESTS.map(([id,d],i)=>{ const r=res&&res[i]; return `<tr><td class="mono">${id}</td><td>${esc(d)}</td><td class="num">${r?esc(r.detail):`<span class="hint">Chưa chạy</span>`}</td><td>${r?`<span class="pill ${r.ok?"pos":"neg"}">${r.ok?"Đạt":"Sai"}</span>`:""}</td></tr>`; }).join("")}
+  </tbody></table></div>`;
+}
+function runTests(){ ui.testRun=TESTS.map(([id,,fn])=>{ try{ const [ok,detail]=fn(); return {ok,detail}; }catch(e){ return {ok:false,detail:"Lỗi: "+e.message}; } }); render(); }
+
+// ---------- Danh mục ----------
+function viewCatalog(){
+  const counts=GROUPS.map(([g,l])=>{ const its=ITEMS.filter(i=>i.groups.includes(g)); const ps=its.filter(i=>i.unit==="S").map(i=>i.price); return {g,l,n:its.length,min:Math.min(...its.map(i=>i.price)),max:Math.max(...its.map(i=>i.price))}; });
+  return `<div class="head"><h2>Danh mục quyền lợi · PC-TM-v0</h2><p>Nhập từ phiếu chọn thẩm mỹ: 7 gói chính và ${ITEMS.length} mục dịch vụ làm thêm (${counts.reduce((a,c)=>a+c.n,0)} dòng hiển thị — "Hút mỡ má" nằm ở 2 nhóm). Mục có nhãn cam đang chờ chủ xác nhận.</p></div>
+  <div class="card"><h3>A · Gói chính (chọn 1)</h3><div class="tbl"><table><thead><tr><th>Mã</th><th>Gói</th><th class="r">Trị giá chương trình</th><th>Ràng buộc</th></tr></thead><tbody>${BUNDLES.map(b=>`<tr><td class="mono">${b.code}</td><td>${esc(b.name)}${b.review?` <span class="pill pend">Chờ xác nhận</span>`:""}${b.opts.length?`<div class="hint">${b.opts.map(esc).join(" · ")}</div>`:""}</td><td class="r">${vndH(b.value)}</td><td>${esc(b.note||"—")}</td></tr>`).join("")}</tbody></table></div></div>
+  <div class="card" style="margin-top:14px"><h3>B · Dịch vụ làm thêm — giá ưu đãi</h3>${GROUPS.map(([g,l])=>`<details ${g==="B01"?"open":""} style="margin-bottom:8px"><summary style="cursor:pointer;font-weight:700">${g.slice(1)}. ${esc(l)} <span class="hint">(${ITEMS.filter(i=>i.groups.includes(g)).length} mục · ${vnd(Math.min(...ITEMS.filter(i=>i.groups.includes(g)).map(i=>i.price)))}–${vnd(Math.max(...ITEMS.filter(i=>i.groups.includes(g)).map(i=>i.price)))}đ)</span></summary>
+    <div class="tbl" style="margin-top:6px"><table><tbody>${ITEMS.filter(i=>i.groups.includes(g)).map(i=>`<tr><td class="mono">${i.code}</td><td>${esc(i.name)}${i.review?` <span class="pill pend">Chờ xác nhận</span>`:""}${i.groups.length>1?` <span class="pill mute">Hiển thị ở ${i.groups.join(", ")}</span>`:""}</td><td class="r">${vndH(i.price)}${UNIT[i.unit]}${i.note&&!i.review?` <span class="hint">${esc(i.note)}</span>`:""}</td><td class="r hint">Thù lao ${ADDON_BPS[i.group]/100}%</td></tr>`).join("")}</tbody></table></div></details>`).join("")}</div>`;
+}
+function viewLog(){
+  return `<div class="head"><h2>Nhật ký thao tác</h2><p>Mọi thao tác tiền và trạng thái đều ghi lại người làm, thời điểm và nội dung. Không có nút xoá.</p></div>
+  <div class="row" style="margin-bottom:14px"><button class="btn warn" data-reset="1">Khôi phục dữ liệu mẫu</button><span class="hint">Xoá mọi thao tác bạn đã thử trên trình duyệt này.</span></div>
+  <div class="tbl"><table><thead><tr><th>Thời điểm</th><th>Người thao tác</th><th>Hành động</th><th>Nội dung</th></tr></thead><tbody>${S.s.audit.slice(0,150).map(a=>`<tr><td class="num">${esc(a.at)}</td><td>${esc(a.actor)}</td><td><b>${esc(a.action)}</b></td><td>${esc(a.detail)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+// ---------- Phạm vi dữ liệu theo vai trò ----------
+function scopeFor(){
+  const a=S.actor();
+  if(["ADMIN","MANAGER","SHAREHOLDER"].includes(a.role)) return {all:true,ids:STAFF.map(x=>x.id),label:"Toàn bộ trung tâm"};
+  if(a.role==="LEAD") return {all:false,ids:STAFF.filter(x=>x.team===a.team).map(x=>x.id),label:"Của "+(TEAMS[a.team]||"nhóm")};
+  return {all:false,ids:[a.id],label:"Của riêng bạn"};
+}
+function last6(){ const m=monthOf(S.today); return [5,4,3,2,1,0].map(k=>addMonths(m+"-01",-k).slice(0,7)); }
+function staffMonth(id,m){
+  const cs=S.s.contracts.filter(c=>c.soldById===id);
+  const ids=new Set(cs.map(c=>c.id));
+  const packs=cs.filter(c=>c.fullyPaidAt&&monthOf(c.fullyPaidAt)===m).length;
+  const cash=S.s.pkgPayments.filter(p=>ids.has(p.contractId)&&monthOf(p.at)===m).reduce((a,p)=>a+p.amount,0)+S.s.addons.filter(x=>ids.has(x.contractId)&&monthOf(x.at)===m).reduce((a,x)=>a+x.paid,0);
+  return {packs,cash};
+}
+// D5 mặc định: doanh số tổng = thực thu chương trình đối tác (gói + ngoài gói), không gồm tiền đóng suất.
+function programRevenue(m){ return S.s.pkgPayments.filter(p=>monthOf(p.at)===m).reduce((a,p)=>a+p.amount,0)+S.s.addons.filter(x=>monthOf(x.at)===m).reduce((a,x)=>a+x.paid,0); }
+function leaderIncome(st,m){ const rev=Math.max(0,programRevenue(m)); return (st.fixed||0)+mulDivFloor(rev,st.pctBps,10000); }
+function growth(cur,prev){ if(!prev) return cur?`<span class="pill pos">mới</span>`:`<span class="pill mute">—</span>`; const g=Math.round((cur-prev)/Math.abs(prev)*100); return `<span class="pill ${g>=0?"pos":"neg"}">${g>=0?"▲":"▼"} ${Math.abs(g)}%</span>`; }
+
+// Biểu đồ cột một chuỗi (một màu nhấn), cột cuối = tháng hiện tại (đang chạy) tô nhạt hơn.
+function barChart(vals,labels,{fmt=short,h=130,unit=""}={}){
+  const W=320,H=h,pl=4,pr=4,pt=18,pb=20, n=vals.length, max=Math.max(...vals,1), slot=(W-pl-pr)/n, bw=Math.min(28,slot*.58), base=H-pb;
+  const bars=vals.map((v,i)=>{ const x=pl+i*slot+(slot-bw)/2, bh=Math.max(v>0?2:0,(Math.max(0,v)/max)*(base-pt)), y=base-bh, r=Math.min(4,bh/2,bw/2);
+    const path=bh>0?`M${x},${base}V${y+r}Q${x},${y} ${x+r},${y}H${x+bw-r}Q${x+bw},${y} ${x+bw},${y+r}V${base}Z`:"";
+    const tip=`${labels[i]}: ${unit==="đ"?vnd(v)+"đ":v+unit}${i===n-1?" (tháng đang chạy)":""}`;
+    return `<g data-tip="${esc(tip)}"><rect x="${pl+i*slot}" y="${pt}" width="${slot}" height="${base-pt}" fill="transparent"/>${path?`<path d="${path}" fill="var(--accent)" opacity="${i===n-1?.55:1}"/>`:""}<text x="${x+bw/2}" y="${H-5}" text-anchor="middle" font-size="10" fill="var(--mute)">${labels[i]}</text>${(i===n-1||v===max)&&v>0?`<text x="${x+bw/2}" y="${y-5}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--ink)">${fmt(v)}</text>`:""}</g>`; }).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Biểu đồ cột theo tháng"><line x1="${pl}" x2="${W-pr}" y1="${base}" y2="${base}" stroke="var(--line)"/>${bars}</svg>`;
+}
+function spark(vals){ const W=84,H=24,n=vals.length,max=Math.max(...vals,1),slot=W/n,bw=slot*.6; return `<svg viewBox="0 0 ${W} ${H}" width="84" height="24" aria-hidden="true">${vals.map((v,i)=>{ const bh=Math.max(v>0?2:0,v/max*(H-2)); return `<rect x="${i*slot+(slot-bw)/2}" y="${H-bh}" width="${bw}" height="${bh}" rx="1.5" fill="var(--accent)" opacity="${i===n-1?.55:1}"/>`; }).join("")}</svg>`; }
+const mlabel=m=>"T"+Number(m.slice(5));
+
+function viewPerformance(){
+  const a=S.actor(), sc=scopeFor(), ms=last6(), m=ms[5], pm=ms[4], L=ms.map(mlabel);
+  const sellers=STAFF.filter(x=>SELLERS.includes(x.id)&&sc.ids.includes(x.id));
+  const parts=[];
+  parts.push(`<div class="head"><h2>Hiệu suất & tăng trưởng</h2><span class="pill ${sc.all?"pos":"pend"}">Phạm vi: ${esc(sc.label)}</span>${a.role==="SHAREHOLDER"?`<span class="pill mute">Chỉ xem</span>`:""}<p>Số liệu 6 tháng gần nhất, cột nhạt là tháng đang chạy. Phần trăm tăng/giảm so sánh hai tháng đã kết thúc gần nhất (${mlabel(pm)} so với ${mlabel(ms[3])}). Rê chuột hoặc chạm vào cột để xem số chính xác.</p></div>`);
+  if(sc.all){
+    const rev=ms.map(programRevenue), packs=ms.map(mm=>S.s.contracts.filter(c=>c.fullyPaidAt&&monthOf(c.fullyPaidAt)===mm).length);
+    parts.push(`<div class="grid g2"><div class="card"><h3>Doanh số tổng chương trình (thực thu) ${growth(rev[4],rev[3])}</h3>${barChart(rev,L,{unit:"đ"})}<p class="hint">Theo mặc định D5: chỉ chương trình đối tác, tính trên thực thu, không gồm tiền đóng suất 2%/5%.</p></div>
+      <div class="card"><h3>Gói thu đủ theo tháng ${growth(packs[4],packs[3])}</h3>${barChart(packs,L,{fmt:v=>String(v),unit:" gói"})}</div></div>`);
+  }
+  // Nhóm
+  const teamKeys=Object.keys(TEAMS).filter(t=>sc.all||(a.role==="LEAD"&&a.team===t));
+  if(teamKeys.length){
+    parts.push(`<div class="card" style="margin-top:14px"><h3>Theo nhóm — thực thu</h3><div class="grid g3">${teamKeys.map(t=>{ const mem=STAFF.filter(x=>x.team===t&&SELLERS.includes(x.id)); const v=ms.map(mm=>mem.reduce((s2,x)=>s2+staffMonth(x.id,mm).cash,0)); const pk=mem.reduce((s2,x)=>s2+staffMonth(x.id,m).packs,0);
+      return `<div><div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap"><b>${TEAMS[t]}</b><span class="hint">${mem.length} người · ${pk} gói tháng này</span><span style="margin-left:auto">${growth(v[4],v[3])}</span></div>${barChart(v,L,{unit:"đ",h:110})}</div>`; }).join("")}</div></div>`);
+  }
+  // Nhân sự
+  if(sellers.length){
+    const rows=sellers.map(x=>{ const cur=staffMonth(x.id,m), prev=staffMonth(x.id,pm), pprev=staffMonth(x.id,ms[3]), hist=ms.map(mm=>staffMonth(x.id,mm).cash); return {x,cur,prev,pprev,hist}; }).sort((p,q)=>q.cur.cash-p.cur.cash);
+    if(sellers.length===1){
+      const r=rows[0];
+      parts.push(`<div class="grid g5" style="margin-top:14px"><div class="card kpi"><h3>Gói thu đủ tháng này</h3><div class="v num">${r.cur.packs}</div><div class="s">Tháng trước ${r.prev.packs}</div></div><div class="card kpi"><h3>Thực thu tháng này</h3><div class="v">${shortH(r.cur.cash)}</div><div class="s">Tháng trước ${short(r.prev.cash)} · ${growth(r.prev.cash,r.pprev.cash)} so với ${mlabel(ms[3])}</div></div><div class="card kpi"><h3>Hợp đồng bạn phụ trách</h3><div class="v num">${S.s.contracts.filter(c=>c.soldById===r.x.id).length}</div><div class="s">Từ đầu chương trình</div></div></div>
+       <div class="card" style="margin-top:14px"><h3>Thực thu của bạn theo tháng</h3>${barChart(r.hist,L,{unit:"đ"})}<p class="hint">Hoa hồng nhân viên bán gói chưa được chủ chốt (câu hỏi E.8) nên chưa hiển thị số tiền.</p></div>`);
+    } else {
+      parts.push(`<div class="card" style="margin-top:14px"><h3>Theo nhân sự — ${vnMonth(m)}</h3><div class="tbl"><table><thead><tr><th>Nhân sự</th><th>Nhóm</th><th class="r">Gói thu đủ</th><th class="r">Thực thu</th><th>${mlabel(pm)} so ${mlabel(ms[3])}</th><th>6 tháng</th></tr></thead><tbody>
+       ${rows.map(r=>`<tr><td>${esc(r.x.name)}<div class="hint">${esc(r.x.label)}</div></td><td>${TEAMS[r.x.team]||""}</td><td class="r num">${r.cur.packs}</td><td class="r">${vndH(r.cur.cash)}</td><td>${growth(r.prev.cash,r.pprev.cash)}</td><td data-tip="${esc(r.hist.map((v,i)=>L[i]+": "+short(v)).join(" · "))}">${spark(r.hist)}</td></tr>`).join("")}
+       </tbody></table></div><p class="hint">Thực thu tính theo hợp đồng nhân viên bán (gói + dịch vụ ngoài gói). Hoa hồng nhân viên bán gói chờ chủ chốt (E.8).</p></div>`);
+    }
+  }
+  // Thu nhập theo % doanh số tổng (bảng chi phí cố định vận hành)
+  const leaders=STAFF.filter(x=>x.pctBps&&(sc.all||x.id===a.id));
+  if(leaders.length){
+    parts.push(`<div class="card" style="margin-top:14px"><h3>Thu nhập theo % doanh số tổng — ban điều hành & bộ phận</h3><div class="grid g3">${leaders.map(x=>{ const v=ms.map(mm=>leaderIncome(x,mm));
+      return `<div><div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap"><b>${esc(x.name)}</b><span class="hint">${x.fixed?vnd(x.fixed)+"đ + ":""}${x.pctBps/100}% doanh số tổng</span><span style="margin-left:auto">${growth(v[4],v[3])}</span></div>${barChart(v,L,{unit:"đ",h:110})}</div>`; }).join("")}</div>
+      <p class="hint">Theo bảng chi phí cố định vận hành: 3 giám đốc mỗi người 10%, kế toán 20tr + 2%, 3 nhân sự truyền thông mỗi người 8tr + 2%. Tổng tỷ lệ 38% doanh số tổng. Phạm vi "doanh số tổng" chờ chủ chốt bằng văn bản (D5).</p></div>`);
+  }
+  // Đối tác — hoa hồng phát sinh
+  if(sc.all){
+    const top=S.s.partners.map(p=>({p,v:ms.map(mm=>S.s.commissions.filter(e=>e.partnerId===p.id&&e.state!=="VOID"&&monthOf(e.at)===mm).reduce((x,e)=>x+e.amount,0))})).map(o=>({...o,t:o.v.reduce((x,y)=>x+y,0)})).filter(o=>o.t>0).sort((x,y)=>y.t-x.t).slice(0,6);
+    parts.push(`<div class="card" style="margin-top:14px"><h3>Hoa hồng đối tác phát sinh theo tháng (6 người cao nhất)</h3><div class="grid g3">${top.map(o=>`<div><div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap"><b>${esc(S.partnerName(o.p.id))}</b><span class="mono hint">${o.p.code}</span><span style="margin-left:auto" class="num">${short(o.t)}</span></div>${barChart(o.v,L,{unit:"đ",h:100})}</div>`).join("")}</div><p class="hint">Chỉ Ban điều hành, kế toán và cổ đông bệnh viện xem được. Đối tác không thấy bảng này (không xếp hạng công khai).</p></div>`);
+  }
+  if(a.role==="DOCTOR"){
+    const v=ms.map(mm=>S.s.selections.filter(x=>x.doctor===a.name&&monthOf(x.at)===mm).reduce((n,x)=>n+x.lines.filter(l=>l.state!=="CHO_BAC_SI").length,0));
+    parts.push(`<div class="card" style="margin-top:14px"><h3>Mục bạn đã chỉ định theo tháng</h3>${barChart(v,L,{fmt:String,unit:" mục"})}<p class="hint">Bác sĩ chỉ thấy hoạt động chuyên môn của mình, không thấy hoa hồng.</p></div>`);
+  }
+  if(parts.length===1) parts.push(`<div class="card hint">Vai trò này chưa có chỉ số hiệu suất riêng.</div>`);
+  return parts.join("");
+}
+
+// ---------- Ma trận phân quyền ----------
+function viewPerms(){
+  const cols=["Đài chỉ huy","Hiệu suất","Bán gói / thu tiền","Chỉ định y khoa","Thấy hoa hồng","Đối soát, lập lô","Duyệt lô chi trả","Cổng đối tác","Mô phỏng, suất","Nhật ký"];
+  const M={
+    ADMIN:["Xem","Toàn bộ","Sửa","—","Xem","Sửa","Sửa (khác người lập)","Xem mọi đối tác","Xem","Xem"],
+    MANAGER:["Xem","Toàn bộ","Thu tiền","—","Xem","Sửa","—","Xem mọi đối tác","Xem","Xem"],
+    SHAREHOLDER:["Xem","Toàn bộ","Xem","—","Xem","Xem","—","Xem mọi đối tác","Xem","—"],
+    LEAD:["—","Nhóm mình","Sửa (HĐ của nhóm)","—","Xem (HĐ của nhóm)","—","—","—","—","—"],
+    CONSULTANT:["—","Của mình","Sửa (HĐ của mình)","—","Xem (HĐ của mình)","—","—","—","—","—"],
+    RECEPTION:["—","Của mình","Sửa (mọi HĐ tại quầy)","—","Xem","—","—","—","—","—"],
+    DOCTOR:["—","Của mình","—","Sửa","Không thấy","—","—","—","—","—"],
+    MEDIA:["—","Thu nhập của mình","—","—","—","—","—","—","—","—"],
+    PARTNER:["—","—","—","—","Của mình","—","—","Chỉ của mình","—","—"]
+  };
+  const cls=v=>v==="—"||v==="Không thấy"?"mute":v.startsWith("Sửa")?"pos":"pend";
+  return `<div class="head"><h2>Phân quyền</h2><p>Mỗi vai trò một phạm vi. Ranh giới được kiểm ở bộ máy nghiệp vụ, không chỉ ẩn nút: người không có quyền bấm vẫn bị từ chối và được ghi nhật ký. Hai việc nhạy cảm cần hai người: người lập lô chi trả không được tự duyệt.</p></div>
+  <div class="tbl"><table><thead><tr><th>Vai trò</th>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody>
+  ${Object.entries(M).map(([r,v])=>`<tr><td><b>${ROLE_LABEL[r]}</b><div class="hint">${STAFF.filter(x=>x.role===r).map(x=>esc(x.name)).join(", ")}</div></td>${v.map(x=>`<td><span class="pill ${cls(x)}">${esc(x)}</span></td>`).join("")}</tr>`).join("")}
+  </tbody></table></div>
+  <div class="grid g2" style="margin-top:14px">
+   <div class="card"><h3>Nguyên tắc</h3><div class="stack hint">
+    <div>Cổ đông bệnh viện xem được toàn bộ số liệu kinh doanh nhưng không có nút sửa nào. Đây là vai trò riêng cho người góp vốn thật của bệnh viện; đối tác 2%/5% không bao giờ được gán vai trò này.</div>
+    <div>Khách / đối tác chỉ thấy ví, thu nhập và hợp đồng của chính mình; người mình giới thiệu chỉ hiện tên viết tắt và 3 số cuối SĐT; không thấy hồ sơ y khoa.</div>
+    <div>Bác sĩ chỉ định chuyên môn và không thấy bất kỳ con số hoa hồng nào.</div>
+    <div>Trưởng nhóm xem hiệu suất của nhóm mình; tư vấn viên chỉ xem của mình.</div></div></div>
+   <div class="card"><h3>Thử ngay</h3><div class="stack hint">
+    <div>Chọn "Cổ đông bệnh viện" ở góc trên → mọi nút thao tác biến mất hoặc bị khoá.</div>
+    <div>Chọn "Mai Anh — Tư vấn viên" → Hiệu suất chỉ còn số của Mai Anh; Quầy chỉ còn hợp đồng Mai Anh bán.</div>
+    <div>Chọn "Thu Hà — Trưởng nhóm" → thấy cả nhóm Tư vấn 1.</div>
+    <div>Chọn "Nguyễn Thị Hạnh — Khách mua gói" → chỉ còn cổng đối tác của chị Hạnh và danh mục.</div></div></div>
+  </div>`;
+}
+
+// ---------- render & sự kiện ----------
+function render(){
+  renderTop();
+  const r=route();
+  if(location.hash.slice(1)!==r && location.hash){ history.replaceState(null,"","#"+r); }
+  const v={"hieu-suat":viewPerformance,"phan-quyen":viewPerms,"dai-chi-huy":viewDashboard,"quay":viewCounter,"ke-toan":viewAccounting,"cong-doi-tac":viewPortal,"suat":viewSeats,"mo-phong":viewSim,"kiem-thu":viewTests,"danh-muc":viewCatalog,"nhat-ky":viewLog}[r];
+  const g=S.s.guide;
+  if(g&&g.on&&r==="cong-doi-tac"&&S.s.actorId==="kh-hanh"){ const gi=guideStep(); if(gi===4) { g.seen5=true; save(); } else if(gi===9){ g.seen10=true; save(); } }
+  const sub=REF_GROUP.includes(r)?`<nav class="subnav">${REF_GROUP.filter(allowed).map(k=>`<a href="#${k}" class="${k===r?"on":""}">${ROUTES.find(x=>x[0]===k)[1]}</a>`).join("")}</nav>`:"";
+  $("#app").innerHTML=`<div class="banner"><b>Bản chạy thử</b> · dữ liệu mẫu, chỉ lưu trên trình duyệt này. <button class="btn sm" data-reset="1">Khôi phục dữ liệu mẫu</button></div>`+guideCard()+sub+v();
+  if(g&&g.on){ const gi=guideStep(); const SEL=["#sellBox","#sec-phieu","#sec-chidinh","#sec-chidinh",".phone","[data-advance],[data-reconcile]","[data-batch-create]","[data-approve]","[data-pay]",".phone"]; if(gi>=0 && S.s.actorId===GUIDE[gi].who && r===GUIDE[gi].r){ const el=document.querySelector(SEL[gi].split(",")[0])||document.querySelector(SEL[gi].split(",")[1]||"#none"); if(el){ el.classList.add("hl"); if(el.tagName==="DETAILS") el.open=true; } } }
+  if(r==="cong-doi-tac"&&ui.ptab==="home"){ const el=$("#qr"); const p=S.partner(ui.portalPartner); if(el&&window.QRCode&&p){ try{ new QRCode(el,{text:"HONGPHUC-ALLIANCE:"+p.code,width:92,height:92,colorDark:"#052e25",colorLight:"#ffffff"}); }catch(e){} } else if(el&&p){ el.innerHTML=`<div class="mono" style="color:#052e25;width:92px;text-align:center">${p.code}</div>`; } }
+}
+const num=id=>Math.round(Number(String(($(id)||{}).value||"0").replace(/[^\d-]/g,""))||0);
+document.addEventListener("click",ev=>{
+  const h=ev.target.closest("[data-hop],[data-guide],[data-advance],[data-sample],[data-showall],[data-goto]");
+  if(h){ const d=h.dataset;
+    if(d.hop){ S.s.actorId=d.hop; save(); render(); toast(`Đã chuyển sang ${S.actor().name} (${S.actor().label}). Bấm lại nút để làm.`); return; }
+    if(d.guide==="start"||d.guide==="restart"){ S.s.guide={on:true,cid:null}; save(); guideGo(); return; }
+    if(d.guide==="go"){ guideGo(); return; }
+    if(d.guide==="off"){ S.s.guide={...(S.s.guide||{}),on:false}; save(); render(); return; }
+    if(d.advance){ S.s.today=nextMonth(monthOf(S.today))+"-02"; save(); render(); toast("Ngày hệ thống: "+vnDate(S.today)+". Giờ có thể đối soát kỳ trước."); return; }
+    if(d.sample){ $("#sName").value="Khách thử "+(S.s.contracts.length+1); $("#sL5").value=String(10000+Math.floor(Math.random()*89999)); $("#sRef").value="HP-2K7Q"; $("#sPin").value="246810"; $("#sRef").dispatchEvent(new Event("input",{bubbles:true})); return; }
+    if(d.showall){ ui.showAll=true; render(); return; }
+    if(d.goto){ ev.preventDefault(); const el=document.getElementById(d.goto); if(el){ if(el.tagName==="DETAILS") el.open=true; el.scrollIntoView({behavior:"smooth",block:"start"}); } return; }
+  }
+  const t=ev.target.closest("[data-contract],[data-collect],[data-cancel],[data-end],[data-rx],[data-redeem],[data-reconcile],[data-batch-create],[data-approve],[data-pay],[data-reject],[data-portal],[data-ptab],[data-activity],[data-run-tests],[data-reset],[data-sim-reset]");
+  if(!t) return;
+  const d=t.dataset;
+  if(d.contract){ ui.contractId=d.contract; render(); if(window.innerWidth<900) document.getElementById("panel").scrollIntoView({behavior:"smooth",block:"start"}); return; }
+  if(d.collect) return act(()=>S.collect(d.collect,num("#colAmt")),"Đã thu tiền.");
+  if(d.cancel) return act(()=>S.cancel(d.cancel),"Đã huỷ hợp đồng và ghi bút toán hoàn tiền.");
+  if(d.end) return act(()=>S.endWithRefund(d.end,d.reason),r=>`Đã kết thúc. Hoàn ${vnd(r)}đ (F1) trong 15 ngày làm việc.`);
+  if(d.rx){ const i=+d.i; const sel=S.s.selections.find(x=>x.id===d.rx); const dec=sel.lines.map(()=>null); dec[i]={ok:d.ok==="1",qty:num(`#rx-${d.rx}-${i}`)}; return act(()=>S.prescribe(d.rx,dec),d.ok==="1"?"Đã chỉ định.":"Đã ghi không chỉ định."); }
+  if(d.redeem){ const i=+d.i, k=`${d.redeem}-${i}`; return act(()=>S.redeem(d.redeem,i,{pin:($(`#pin-${k}`)||{}).value,overageConsent:!!($(`#oc-${k}`)||{}).checked,overagePaid:num(`#op-${k}`)}),"Đã ghi nhận sử dụng và trừ ví."); }
+  if(d.reconcile) return act(()=>S.reconcile(d.reconcile),r=>`Đối soát xong: ${r.n} khoản, ${vnd(r.sum)}đ chuyển "Khả dụng".`);
+  if(d.batchCreate) return act(()=>S.createBatch(),b=>`Đã lập ${b.code}: ${vnd(b.total)}đ — chờ Ban điều hành duyệt.`);
+  if(d.approve) return act(()=>S.approveBatch(d.approve),"Đã duyệt lô, sinh giấy đề nghị thanh toán.");
+  if(d.pay) return act(()=>S.payBatch(d.pay),"Đã ghi chuyển khoản. Các khoản chuyển 'Đã trả'.");
+  if(d.reject) return act(()=>S.rejectBatch(d.reject),"Đã trả lại lô; các khoản quay về 'Khả dụng'.");
+  if(d.portal){ ui.portalPartner=d.portal; ui.ptab="home"; location.hash="cong-doi-tac"; return; }
+  if(d.ptab){ ui.ptab=d.ptab; render(); return; }
+  if(d.activity) return act(()=>S.addActivity(d.activity,"Dự họp lớn / hỗ trợ chương trình (có biên bản)"),"Đã ghi nhận nhiệm vụ chung tháng này.");
+  if(d.runTests){ runTests(); return; }
+  if(d.simReset){ ui.sim=null; render(); return; }
+  if(d.reset){ S.s=seedState(); save(); ui={contractId:null,q:"",portalPartner:null,ptab:"home",sim:null,testRun:null,showAll:false,sellOpen:false,sellPrefill:null}; render(); toast("Đã khôi phục dữ liệu mẫu."); }
+});
+document.addEventListener("submit",ev=>{
+  ev.preventDefault();
+  const f=ev.target;
+  if(f.id==="sellForm") return act(()=>{ const c=S.sell({buyerName:$("#sName").value,last5:$("#sL5").value,referralCode:$("#sRef").value.trim(),pin:$("#sPin").value,firstPayment:Number($("#sPay").value)}); ui.contractId=c.id; ui.q=""; ui.sellOpen=false; ui.sellPrefill=null; const g=S.s.guide; if(g&&g.on&&guideStep()===0&&c.attributedPartnerId&&S.partner(c.attributedPartnerId).code==="HP-2K7Q"){ g.cid=c.id; } return c; },c=>`Đã ký ${c.code}. Mã đối tác của khách: ${S.partner(c.ownerPartnerId).code}.`);
+  if(f.id==="selForm"){ const cid=f.dataset.cid; const b=(f.querySelector('input[name="bundle"]:checked')||{}).value||null; const options=b?[...f.querySelectorAll(`input[name="opt-${b}"]:checked`)].map(x=>x.value):[]; const code=$("#selB").value; const extras=code?[{code,qty:Number($("#selQ").value)||1}]:[]; return act(()=>S.saveSelection(cid,{bundle:b,options,extras}),"Đã lưu phiếu chọn. Chờ bác sĩ chỉ định."); }
+  if(f.id==="addonForm"){ const cid=f.dataset.cid; const code=$("#adItem").value; return act(()=>S.addon(cid,{itemCode:code,name:itemByCode(code).name,gross:num("#adGross"),discount:num("#adDisc"),paid:num("#adPaid")}),"Đã ghi dịch vụ ngoài gói."); }
+});
+document.addEventListener("input",ev=>{
+  const t=ev.target;
+  if(t.id==="q"){ ui.q=t.value; const pos=t.selectionStart; render(); const q=$("#q"); q.focus(); try{q.setSelectionRange(pos,pos);}catch(e){} }
+  if(t.id==="sRef"){ const p=S.partnerByCode(t.value); $("#refInfo").innerHTML=t.value.trim()?(p?`<span class="ok">✓ ${esc(S.partnerName(p.id))} · ${p.code} — xác nhận đúng người với khách</span>`:`<span class="err">Không tìm thấy mã</span>`):"Nhập mã để hiện tên người giới thiệu và xác nhận đúng người."; }
+  if(t.dataset.sim){ ui.sim[t.dataset.sim]=Number(t.value); const y=window.scrollY; render(); window.scrollTo(0,y); const el=$(`#sim-${t.dataset.sim}`); if(el) el.focus(); }
+  if(t.id==="adItem"){ const p=Number(t.selectedOptions[0].dataset.price); $("#adGross").value=p; $("#adPaid").value=p-num("#adDisc"); }
+  if(t.id==="adDisc"){ $("#adPaid").value=Math.max(0,num("#adGross")-num("#adDisc")); }
+});
+document.addEventListener("change",ev=>{
+  const t=ev.target;
+  if(t.id==="actor"){ S.s.actorId=t.value; save(); if(!allowed(location.hash.slice(1))) history.replaceState(null,"","#"+defaultRoute()); render(); toast("Đang thao tác: "+S.actor().name+" — "+S.actor().label); }
+  if(t.id==="today"&&t.value){ S.s.today=t.value; save(); render(); toast("Ngày hệ thống: "+vnDate(t.value)); }
+  if(t.id==="pp"){ ui.portalPartner=t.value; ui.ptab="home"; render(); }
+});
+document.addEventListener("pointerover",ev=>{ const t=ev.target.closest&&ev.target.closest("[data-tip]"); const tip=$("#tip"); if(!t){ tip.hidden=true; return; } tip.textContent=t.dataset.tip; tip.hidden=false; const r=t.getBoundingClientRect(); tip.style.left=Math.min(window.innerWidth-270,Math.max(8,r.left))+"px"; tip.style.top=Math.max(8,r.top-38)+"px"; });
+window.addEventListener("scroll",()=>{ $("#tip").hidden=true; },{passive:true});
+window.addEventListener("hashchange",()=>{ render(); window.scrollTo(0,0); });
+render();
+</script>
