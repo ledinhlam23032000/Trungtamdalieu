@@ -46,8 +46,12 @@
       <p><b>1. Giá trị và quyền lợi.</b> Bên B thanh toán <b>15.000.000 đồng</b> (${docSo(15000000)}), nhận <b>30.000.000 đồng</b> giá trị sản phẩm hoặc dịch vụ tuỳ chọn theo danh mục ký kèm (phiên bản PC-TM-v0). ${c.fullyPaidAt ? `Đã thanh toán đủ ngày ${HP.vnDate(c.fullyPaidAt)}. Thời hạn sử dụng đến <b>${HP.vnDate(c.expiresAt)}</b>.` : `Đã thanh toán ${v(st.paid(c.id))}đ; ví mở khi thanh toán đủ.`} Mỗi lần sử dụng phải xác nhận giá trị và số dư; khoản vượt gói chỉ thu khi Bên B đồng ý trước.</p>
       <p><b>2. Trách nhiệm hai bên.</b> Bên A cấp chứng từ thu, cung cấp đúng sản phẩm, chất lượng và quyền lợi; dịch vụ do người đủ điều kiện thực hiện tại cơ sở được cấp phép. Bên B cung cấp thông tin chính xác, chỉ truyền thông nội dung được Bên A xác nhận, không tự cam kết hiệu quả.</p>
       <p><b>3. Thù lao dịch vụ ngoài gói.</b> ☑ Có — ${st.cfg.addonBps / 100}% trên tiền dịch vụ ngoài gói thực thu, sau giảm giá và hoàn tiền, của khách Bên B trực tiếp tư vấn, giới thiệu được Bên A xác nhận. Đối soát hằng tháng.</p>
-      <p><b>4. Chấm dứt.</b> Khi chấm dứt hoặc hết hạn, Bên A hoàn phần chưa dùng trong 15 ngày làm việc: tiền hoàn = 15.000.000 × số dư quyền lợi / 30.000.000.</p>
-      <p>Hợp đồng chỉ áp dụng gói 15 triệu, không bao gồm cổ phần. Lập 02 bản, mỗi bên giữ 01 bản.</p>` + sign("ĐẠI DIỆN BÊN A", "BÊN B");
+      <p><b>4. Thù lao giới thiệu.</b> Khi khách hàng do Bên B giới thiệu trực tiếp ký và thanh toán đủ gói, Bên A trả ${v(st.cfg.referralFlat)}đ/hợp đồng sau đối soát tháng; nếu hợp đồng đó bị huỷ, khoản đã trả được trừ vào kỳ chi trả sau. Thù lao chỉ tính trên giao dịch mua dịch vụ có thật; <b>không bao gồm thưởng tuyển đối tác, không trả theo số người tham gia</b>, không yêu cầu Bên B mua thêm hay duy trì doanh số. Thù lao là thu nhập chịu thuế TNCN; Bên A khấu trừ, kê khai theo quy định và cấp chứng từ khấu trừ.</p>
+      <p><b>5. Chấm dứt.</b> Khi chấm dứt hoặc hết hạn, Bên A hoàn phần chưa dùng trong 15 ngày làm việc: tiền hoàn = 15.000.000 × số dư quyền lợi / 30.000.000.</p>
+      <p><b>6. Sử dụng quyền lợi.</b> Mỗi lần sử dụng, Bên B xác nhận bằng mã PIN cá nhân do Bên B tự đặt; Bên A không lưu giữ PIN thay Bên B. Các thủ thuật chỉ thực hiện khi bác sĩ khám, chỉ định và Bên B ký phiếu đồng ý.</p>
+      <p><b>7. Dữ liệu cá nhân.</b> Bên A xử lý dữ liệu cá nhân (kể cả dữ liệu sức khoẻ) của Bên B chỉ cho mục đích điều trị, chăm sóc và thực hiện hợp đồng, theo văn bản đồng ý riêng; không chia sẻ cho bên thứ ba khi chưa có đồng ý.</p>
+      <p><b>8. Vi phạm và tranh chấp.</b> Bên vi phạm khắc phục trong 10 ngày kể từ khi nhận thông báo; gây thiệt hại thì bồi thường theo pháp luật. Tranh chấp được thương lượng; không thành thì đưa ra Toà án có thẩm quyền.</p>
+      <p>Giá trị hợp đồng ☐ đã gồm ☐ chưa gồm thuế GTGT (nếu có). Hợp đồng chỉ áp dụng gói 15 triệu, không bao gồm cổ phần. Lập 02 bản, mỗi bên giữ 01 bản.</p>` + sign("ĐẠI DIỆN BÊN A", "BÊN B");
     },
     phieuThu(st, p, isPkg) {
       const cus = isPkg ? st.customer(st.contract(p.contractId).customerId) : st.customer(p.customerId);
@@ -59,6 +63,8 @@
       <tr><td>Số tiền</td><td><b>${v(Math.abs(p.amount))} đồng</b></td></tr>
       <tr><td>Bằng chữ</td><td><i>${docSo(Math.abs(p.amount))}</i></td></tr>
       <tr><td>Hình thức</td><td>${({ CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", CARD: "Quẹt thẻ" })[p.method] || "Tiền mặt"}</td></tr>
+      ${!isPkg && st.treatment(p.treatmentId) ? (() => { const t = st.treatment(p.treatmentId), sm = st.sumTreatment(t); return `<tr><td>Dịch vụ</td><td>${t.lines.filter(l => l.finalPrice).map(l => `${esc(l.name)}${l.qty > 1 ? " ×" + l.qty : ""}: ${v(l.finalPrice)}đ${l.discount ? " (giảm " + v(l.discount) + "đ)" : ""}`).join("<br>")}</td></tr><tr><td>Tổng · đã thu · còn nợ</td><td>${v(sm.total)}đ · ${v(sm.paid)}đ · <b>${v(sm.debt)}đ</b></td></tr>`; })() : ""}
+      ${p.kind === "VOID" ? `<tr><td>Ghi chú</td><td><b>Phiếu huỷ</b> (đảo phiếu thu nhầm trong ngày)</td></tr>` : ""}
       <tr><td>${refund ? "Người chi" : "Người thu"}</td><td>${esc(staffName(st, p.by))}</td></tr></table>` + sign(refund ? "NGƯỜI NHẬN TIỀN" : "NGƯỜI NỘP TIỀN", refund ? "NGƯỜI CHI" : "NGƯỜI THU TIỀN");
     },
     phieuChon(st, sel) {
@@ -70,12 +76,16 @@
     },
     phieuDongY(st, t) {
       const cus = st.customer(t.customerId);
+      const CAT = root.CATALOG, kinds = Array.from(new Set(t.lines.map(l => (CAT.clin(l.code) || {}).consent).filter(Boolean)));
+      const RISK = { PEEL: "Peel hoá học: đỏ, rát, bong tróc, tăng/giảm sắc tố, bùng mụn, hiếm gặp bỏng hoá chất và sẹo.", LASER: "Laser / lăn kim / triệt lông: đỏ, phù, đóng mài, tăng sắc tố sau viêm, bỏng nhiệt, phồng rộp, nhiễm trùng, hiếm gặp sẹo.", HIFU: "HIFU / RF: đỏ, sưng, đau, tê bì tạm thời, bỏng điểm, tổn thương thần kinh mặt hiếm gặp.", INJECT: "Tiêm filler / botox / căng chỉ / tiểu phẫu: bầm, sưng, đau, nhiễm trùng, lệch / không đều, sụp mi (botox), u hạt; <b>tắc mạch máu có thể gây hoại tử da, giảm hoặc mất thị lực</b> (filler) — cần báo ngay nếu đau tăng, da tái, nhìn mờ." };
+      const age = HP.ageAt ? HP.ageAt(cus.dob || "", st.today) : null, contra = (cus.contra || []).map(k => CAT.CONTRA[k]);
       return head("PHIẾU ĐỒNG Ý THỰC HIỆN THỦ THUẬT DA LIỄU", t.code) + `<p class="doc-c">${today(st)}</p>
-      <p>Tôi là: <b>${esc(cus.name)}</b> · Ngày sinh: ${cus.dob ? HP.vnDate(cus.dob) : "…………"} · Loại da: ${esc(cus.skinType || "…………")}</p>
-      <p>Tiền sử dị ứng / chống chỉ định: <b>${esc(cus.allergies || "Không ghi nhận")}</b></p>
+      <p>Tôi là: <b>${esc(cus.name)}</b> · Ngày sinh: ${cus.dob ? HP.vnDate(cus.dob) : "…………"} · CCCD: ……………… · Loại da: ${esc(cus.skinType || "…………")}</p>
+      <p>Tiền sử dị ứng / chống chỉ định: <b>${esc([...contra, cus.allergies].filter(Boolean).join("; ") || "Không ghi nhận")}</b>. Tôi xác nhận đã khai báo trung thực (mang thai, thuốc đang dùng, bệnh nền).</p>
+      ${age !== null && age < 18 ? `<p><b>Khách dưới 18 tuổi</b> — cha/mẹ hoặc người giám hộ ký thay: ……………………………… · Quan hệ: …………</p>` : ""}
       <p>Đã được bác sĩ <b>${esc(staffName(st, t.doctorId))}</b> thăm khám, giải thích về các dịch vụ sau:</p>
       <ul>${t.lines.map(l => `<li>${esc(l.name)} — ${l.sessionsTotal} buổi</li>`).join("") || "<li>…………………………</li>"}</ul>
-      <p>Tôi đã được giải thích mục đích, quy trình, lợi ích, nguy cơ có thể xảy ra (đỏ da, bong tróc, thâm sau viêm, kích ứng…) và cách chăm sóc sau điều trị. Tôi hiểu kết quả phụ thuộc cơ địa, không có cam kết hiệu quả tuyệt đối. Tôi tự nguyện đồng ý thực hiện.</p>` + sign("KHÁCH HÀNG", "BÁC SĨ ĐIỀU TRỊ");
+      <p><b>Nguy cơ có thể xảy ra:</b></p><ul>${(kinds.length ? kinds : ["PEEL"]).map(k => `<li>${RISK[k]}</li>`).join("")}</ul><p>Phương án thay thế (điều trị bôi/uống, không điều trị) đã được giải thích. ☐ Tôi đồng ý cho chụp ảnh trước–sau để theo dõi điều trị (không dùng cho quảng cáo nếu không có đồng ý riêng).</p><p>Tôi đã được giải thích mục đích, quy trình, lợi ích, các nguy cơ trên và cách chăm sóc sau điều trị. Tôi hiểu kết quả phụ thuộc cơ địa, không có cam kết hiệu quả tuyệt đối. Tôi tự nguyện đồng ý thực hiện.</p>` + sign("KHÁCH HÀNG", "BÁC SĨ ĐIỀU TRỊ");
     },
     deNghiThanhToan(st, r) {
       const cat = { HOAN_TIEN: "Hoàn tiền khách hàng", HOA_HONG: "Hoa hồng đối tác", LUONG: "Lương nhân sự", MAT_BANG: "Mặt bằng", VAT_TU: "Vật tư – dược mỹ phẩm", MARKETING: "Marketing", KHAC: "Chi khác" };
@@ -95,7 +105,7 @@
       const gen = inM.reduce((a, e) => a + e.amount, 0);
       const TL = { REFERRAL_FLAT: "Giới thiệu gói", ADDON_PCT: "Dịch vụ ngoài gói", NETWORK: "Thưởng tuyến", OFFSET: "Bù trừ", CLAWBACK: "Thu hồi" };
       return head(`SAO KÊ THU NHẬP ĐỐI TÁC THÁNG ${month.slice(5)}/${month.slice(0, 4)}`, "") + `<p>Đối tác: <b>${esc(st.partnerName(pid))}</b> · Mã ${esc(p.code)}</p>
-      <table class="doc-t"><tr><td>Số dư chưa trả đầu kỳ</td><td>${v(open)}đ</td></tr><tr><td>Phát sinh trong kỳ</td><td>${v(gen)}đ</td></tr><tr><td>Đã chuyển trong kỳ</td><td>${v(paidIn)}đ</td></tr><tr><td><b>Số dư chưa trả cuối kỳ</b></td><td><b>${v(open + gen - paidIn)}đ</b></td></tr><tr><td>Thuế TNCN khấu trừ</td><td>0đ (chưa áp dụng)</td></tr></table>
+      <table class="doc-t"><tr><td>Số dư chưa trả đầu kỳ</td><td>${v(open)}đ</td></tr><tr><td>Phát sinh trong kỳ</td><td>${v(gen)}đ</td></tr><tr><td>Đã chuyển trong kỳ</td><td>${v(paidIn)}đ</td></tr><tr><td><b>Số dư chưa trả cuối kỳ</b></td><td><b>${v(open + gen - paidIn)}đ</b></td></tr><tr><td>Thuế TNCN khấu trừ</td><td>Theo chứng từ khấu trừ khi chi trả (kế toán ghi)</td></tr></table>
       <table class="doc-t"><tr><th>Ngày</th><th>Loại</th><th>Diễn giải</th><th>Số tiền</th></tr>${inM.map(e => `<tr><td>${HP.vnDate(e.at)}</td><td>${TL[e.type] || e.type}</td><td>${esc(e.note || "")}</td><td>${v(e.amount)}đ</td></tr>`).join("") || `<tr><td colspan="4">Không có phát sinh</td></tr>`}</table>` + sign("ĐỐI TÁC XÁC NHẬN", "KẾ TOÁN");
     },
     danhSachCongNhan(st, pid) {
@@ -112,7 +122,7 @@
       const cus = st.customer(c.customerId), refund = -st.s.pkgPayments.filter(p => p.contractId === c.id && p.kind === "REFUND").reduce((a, p) => a + p.amount, 0);
       const conv = -st.s.wallet.filter(w => w.contractId === c.id && ["EXPIRE", "REFUND_CONVERSION"].includes(w.kind)).reduce((a, w) => a + w.amount, 0);
       return head("BIÊN BẢN HOÀN PHẦN QUYỀN LỢI CHƯA SỬ DỤNG", c.code) + `<p class="doc-c">${today(st)}</p>
-      <p>Khách hàng: <b>${esc(cus.name)}</b> · Hợp đồng ${esc(c.code)} · Trạng thái: ${esc(c.status)}</p>
+      <p>Khách hàng: <b>${esc(cus.name)}</b> · Hợp đồng ${esc(c.code)} · Trạng thái: ${esc(({ CANCELLED: "Đã huỷ", TERMINATED: "Đã chấm dứt", EXPIRED: "Đã hết hạn", ACTIVE: "Đang hiệu lực", CONSUMED: "Đã dùng hết", SIGNED: "Đã ký, chưa đóng đủ" })[c.status] || c.status)}</p>
       <table class="doc-t"><tr><td>Giá trị quyền lợi ban đầu</td><td>30.000.000đ</td></tr><tr><td>Đã sử dụng</td><td>${v(st.used(c.id))}đ</td></tr><tr><td>Số dư quy đổi</td><td>${v(conv)}đ</td></tr>
       <tr><td>Công thức</td><td>15.000.000 × ${v(conv)} / 30.000.000</td></tr><tr><td><b>Số tiền hoàn</b></td><td><b>${v(refund)}đ</b> — ${docSo(refund)}</td></tr><tr><td>Hạn hoàn</td><td>${HP.vnDate(c.refundDueAt)} (15 ngày làm việc)</td></tr></table>` + sign("ĐẠI DIỆN BỆNH VIỆN", "KHÁCH HÀNG");
     }

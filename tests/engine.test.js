@@ -259,3 +259,73 @@ test("Vòng 2: lương không âm (thiếu chuyển kỳ sau); lô tự tháo đ
   { const st = fresh(); const run = { month: "2026-10", status: "APPROVED", lines: [{ staffId: "huy", carryOut: 6500000 }] }; st.s.payrollRuns.push(run);
     const lines = st.computePayroll("2026-11"); const h = lines.find(l => l.staffId === "huy"); assert.equal(h.carryIn, -6500000); assert.ok(h.total >= 0); assert.ok(lines.every(l => l.total >= 0)); }
 });
+
+test("Vòng 3 — an toàn chuyên môn: bác sĩ chỉ định, KTV không tiêm, chống chỉ định, phiếu đồng ý, số lô, huỷ buổi", () => {
+  const st = fresh();
+  const cus = as(st, "hoa", () => st.addCustomer({ name: "Khách Tiêm", last5: "70101", consent: true, contra: ["LIDO"] }));
+  const t = as(st, "maianh", () => st.openTreatment(cus.id, { doctorId: "bsminh" }));
+  // dị ứng thuốc tê → tư vấn không thêm được filler; bác sĩ phải ghi lý do
+  assert.throws(() => as(st, "maianh", () => st.addLine(t.id, { code: "D04-04" })), /Chống chỉ định/);
+  assert.throws(() => as(st, "bsminh", () => st.addLine(t.id, { code: "D04-04" })), /lý do/);
+  const l = as(st, "bsminh", () => st.addLine(t.id, { code: "D04-04", contraReason: "Dùng filler không lidocaine" }));
+  assert.equal(l.rx, "OK"); assert.ok(l.contraOverride);
+  // peel do tư vấn thêm → chờ bác sĩ
+  const p = as(st, "maianh", () => st.addLine(t.id, { code: "D01-03" })); assert.equal(p.rx, "CHO_BS");
+  assert.throws(() => as(st, "nga", () => st.addSession(t.id, p.id)), /bác sĩ khám/);
+  as(st, "bsminh", () => st.approveLine(t.id, p.id, { ok: true }));
+  assert.throws(() => as(st, "nga", () => st.addSession(t.id, p.id)), /phiếu đồng ý/);
+  as(st, "hoa", () => st.signConsent(t.id));
+  const se = as(st, "nga", () => st.addSession(t.id, p.id, { note: "da đỏ nhẹ" }));
+  assert.throws(() => as(st, "nga", () => st.addSession(t.id, p.id)), /Đã làm đủ|hôm nay/);
+  // KTV không làm filler; bác sĩ phải ghi số lô
+  assert.throws(() => as(st, "nga", () => st.addSession(t.id, l.id)), /bác sĩ thực hiện/);
+  assert.throws(() => as(st, "bsminh", () => st.addSession(t.id, l.id)), /số lô/);
+  as(st, "bsminh", () => st.addSession(t.id, l.id, { lot: "JUV2611A" }));
+  // huỷ buổi ghi nhầm: người khác không huỷ được, người ghi huỷ được trong ngày, không tính thù lao
+  assert.throws(() => as(st, "tam", () => st.voidSession(se.id, "nhầm")), /người ghi/);
+  as(st, "nga", () => st.voidSession(se.id, "Ghi nhầm khách"));
+  assert.equal(p.sessionsDone, 0); assert.ok(se.voidedAt);
+  // không chỉ định: lý do bắt buộc, giá về 0
+  const q = as(st, "maianh", () => st.addLine(t.id, { code: "D03-01" }));
+  assert.throws(() => as(st, "bsminh", () => st.approveLine(t.id, q.id, { ok: false })), /lý do/);
+  as(st, "bsminh", () => st.approveLine(t.id, q.id, { ok: false, reason: "Đang có mụn viêm" })); assert.equal(q.finalPrice, 0);
+});
+test("Vòng 3 — vận hành & chống gian lận", () => {
+  const st = fresh();
+  // trùng hồ sơ bỏ dấu; tìm theo SĐT đầy đủ
+  as(st, "hoa", () => st.addCustomer({ name: "Trần Ngọc Hân", last5: "45678", consent: true, phone: "0912345678" }));
+  assert.throws(() => as(st, "hoa", () => st.addCustomer({ name: "tran ngoc han", last5: "45678", consent: true })), /Đã có hồ sơ/);
+  assert.equal(st.findCustomers("0912 345 678").length, 1); assert.equal(st.findCustomers("ngoc han").length, 1);
+  const c = st.s.customers[0];
+  // lịch: trùng bác sĩ cảnh báo, không đến → tới muộn trong ngày, dời, huỷ cần lý do
+  const a = as(st, "hoa", () => st.addAppointment({ customerId: c.id, date: st.today, time: "10:00", staffId: "bsminh" }));
+  const c2 = as(st, "hoa", () => st.addCustomer({ name: "Khách Hai", last5: "45679", consent: true }));
+  assert.throws(() => as(st, "hoa", () => st.addAppointment({ customerId: c2.id, date: st.today, time: "10:15", staffId: "bsminh" })), /đã có khách/);
+  as(st, "hoa", () => st.addAppointment({ customerId: c2.id, date: st.today, time: "10:15", staffId: "bsminh", force: true }));
+  as(st, "hoa", () => st.setApptStatus(a.id, "NO_SHOW")); as(st, "hoa", () => st.setApptStatus(a.id, "ARRIVED")); assert.equal(a.status, "ARRIVED");
+  const b = as(st, "hoa", () => st.addAppointment({ customerId: c2.id, date: "2026-11-05", time: "09:00" }));
+  as(st, "hoa", () => st.moveAppointment(b.id, "2026-11-06", "14:00")); assert.equal(b.date, "2026-11-06");
+  assert.throws(() => as(st, "hoa", () => st.setApptStatus(b.id, "CANCELLED")), /lý do/);
+  // thu nhầm: huỷ phiếu trong ngày bằng bút toán đảo; đổi hình thức
+  const t = as(st, "maianh", () => st.openTreatment(c.id)); as(st, "maianh", () => st.addLine(t.id, { code: "D05-01" }));
+  const p1 = as(st, "hoa", () => st.pay(t.id, 400000, { method: "CASH" }));
+  as(st, "bich", () => st.changePayMethod(p1.id, "TRANSFER")); assert.equal(p1.method, "TRANSFER");
+  as(st, "bich", () => st.voidPayment(p1.id, "Thu nhầm khách")); assert.equal(st.sumTreatment(t).paid, 0);
+  assert.equal(st.cashbook(st.today).by.TRANSFER, 0);
+  // gói: mặc định phải có đồng ý; dưới 18 tuổi bị chặn; ghi đúng hình thức
+  assert.throws(() => as(st, "hoa", () => st.sell({ buyerName: "Khách Mới", last5: "45680", pin: "123456", firstPayment: 0 })), /đồng ý/);
+  const kid = as(st, "hoa", () => st.addCustomer({ name: "Học Sinh", last5: "45681", consent: true, dob: "2012-01-01" }));
+  assert.throws(() => as(st, "hoa", () => st.sell({ customerId: kid.id, pin: "123456", firstPayment: 0 })), /18 tuổi/);
+  const k = as(st, "hoa", () => st.sell({ customerId: c.id, pin: "123456", firstPayment: HP.PKG_PRICE, method: "TRANSFER" }));
+  assert.equal(st.s.pkgPayments.find(x => x.contractId === k.id).method, "TRANSFER");
+  assert.equal(st.obligations().wallet, HP.ENTITLEMENT);
+  // đặt lại PIN rồi tự trừ ví trong ngày → chặn
+  as(st, "lam", () => st.resetPin(k.id, "654321"));
+  const sel = as(st, "hoa", () => st.saveSelection(k.id, { extras: [{ code: "D05-01", qty: 1 }] }));
+  as(st, "bsminh", () => st.prescribe(sel.id, [{ ok: true }]));
+  assert.throws(() => as(st, "lam", () => st.redeem(sel.id, 0, { pin: "654321" })), /đặt lại PIN/);
+  // sự cố: mức 1 hạn trong ngày, đóng cần kết quả
+  const inc = as(st, "hoa", () => st.addIncident({ customerId: c.id, kind: "BIEN_CHUNG", severity: 1, desc: "Sưng đỏ sau peel" }));
+  assert.equal(inc.due, st.today); assert.throws(() => as(st, "hoa", () => st.closeIncident(inc.id, "ok ok ok")), /quyền/);
+  as(st, "bsminh", () => st.closeIncident(inc.id, "Khám lại, kê kem phục hồi")); assert.equal(inc.status, "CLOSED");
+});

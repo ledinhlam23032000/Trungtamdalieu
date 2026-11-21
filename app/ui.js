@@ -4,9 +4,22 @@
   const { Store, STAFF, TEAMS, ROLE_LABEL, CAN, F, PKG_PRICE, ENTITLEMENT, mulDivFloor, addDays, addMonths, monthOf, nextMonth, prevMonth, daysBetween, vnd, vnDate, maskPhone, evaluateMaintenance } = HP;
   const CAT = window.CATALOG, DOCS = window.DOCS;
   const KEY = "trungtamdalieu-app-v2";
-  function load() { try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); if (s && s.v === 4) return s; } } catch (e) { } return SEED.seed(); }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(S.s)); } catch (e) { } }
+  // Nạp dữ liệu: hỏng / sai phiên bản → KHÔNG ghi đè; cất bản thô sang khoá .broken rồi mới dùng dữ liệu mẫu.
+  let bootWarn = "";
+  function load() { let raw = null; try { raw = localStorage.getItem(KEY); } catch (e) { bootWarn = "Trình duyệt chặn bộ nhớ — dữ liệu sẽ không được lưu."; return SEED.seed(); }
+    if (!raw) return SEED.seed();
+    try { const s = JSON.parse(raw); const errs = HP.validateState(s); if (!errs.length) { if (!s.incidents) s.incidents = []; if (!s.rev) s.rev = 1; return s; } throw new Error(errs.join("; ")); }
+    catch (e) { const bk = KEY + ".broken-" + Date.now(); try { localStorage.setItem(bk, raw); } catch (x) { } bootWarn = `Dữ liệu đã lưu bị hỏng (${String(e.message).slice(0, 80)}). Bản gốc được cất ở khoá ${bk}; đang dùng dữ liệu mẫu.`; return SEED.seed(); } }
+  function storedRev() { try { const raw = localStorage.getItem(KEY); if (!raw) return 0; const m = raw.match(/"rev":(\d+)/); return m ? +m[1] : 0; } catch (e) { return 0; } }
+  // strict: ném lỗi để act() khôi phục nguyên trạng khi không lưu được (đầy bộ nhớ) hoặc tab khác vừa ghi.
+  function save(strict) {
+    try { const cur = storedRev(); if (!strict && cur && cur !== (S.s.rev || 0)) { try { const n = JSON.parse(localStorage.getItem(KEY)); if (!HP.validateState(n).length) { const me = S.s.actorId; S.s = n; S.s.actorId = me; } } catch (x) { } }
+      else if (strict && cur && cur !== (S.s.rev || 0)) { const e = new Error("Một tab khác vừa thay đổi dữ liệu — thao tác này chưa được lưu. Màn hình đã cập nhật bản mới nhất, làm lại thao tác."); e.conflict = true; throw e; }
+      S.s.rev = (S.s.rev || 0) + 1; localStorage.setItem(KEY, JSON.stringify(S.s)); }
+    catch (e) { if (e.conflict) throw e; S.s.rev = Math.max(1, (S.s.rev || 1) - 1); const err = new Error("Không lưu được vào bộ nhớ trình duyệt (đầy hoặc bị chặn) — thao tác bị huỷ. Tải bản sao lưu ở Cài đặt."); if (strict) throw err; setTimeout(() => toast(err.message, true), 0); } }
+  window.addEventListener("storage", e => { if (e.key !== KEY || !e.newValue) return; try { const n = JSON.parse(e.newValue); if (n && n.v === 4) { S.s = n; if (!S.s.incidents) S.s.incidents = []; render(); toast("Dữ liệu vừa được cập nhật từ một tab khác — đang hiển thị bản mới nhất."); } } catch (x) { } });
   const S = new Store(load());
+  if (bootWarn) setTimeout(() => toast(bootWarn, true), 300);
   window.APP = { S, save };
 
   // ---------- tiện ích hiển thị ----------
@@ -26,11 +39,11 @@
   // Mỗi thao tác là một giao dịch: lỗi ở bất kỳ bước nào → khôi phục nguyên trạng (chỉ giữ dòng nhật ký "TỪ CHỐI"), không vẽ lại để giữ nội dung form.
   function act(fn, ok, undo) {
     const snap = JSON.stringify(S.s);
-    try { const r = fn(); save(); busyUntil = Date.now() + 250; render(); if (ok) toast(typeof ok === "function" ? ok(r) : ok, false, undo ? undo(r) : null); return r; }
+    try { const r = fn(); save(true); busyUntil = Date.now() + 250; render(); if (ok) toast(typeof ok === "function" ? ok(r) : ok, false, undo ? undo(r) : null); return r; }
     catch (e) { const denied = S.s.audit.filter(a => a.action === "TỪ CHỐI" || a.action === "SAI PIN"), prev = JSON.parse(snap); const keep = denied.slice(0, Math.max(0, denied.length - prev.audit.filter(a => a.action === "TỪ CHỐI" || a.action === "SAI PIN").length));
       const pinState = {}; S.s.contracts.forEach(c => { if (c.pinFails || c.pinLocked) pinState[c.id] = { pinFails: c.pinFails, pinLocked: c.pinLocked }; });
       S.s = prev; S.s.audit = [...keep, ...S.s.audit]; S.s.contracts.forEach(c => { if (pinState[c.id]) Object.assign(c, pinState[c.id]); });
-      save(); toast(e.message, true); if (e.after) e.after(); return null; }
+      if (e.conflict) { try { const n = JSON.parse(localStorage.getItem(KEY)); if (!HP.validateState(n).length) S.s = n; } catch (x) { } render(); } else save(); toast(e.message, true); if (e.after) e.after(); return null; }
   }
   // Đọc số tiền: chấp nhận 1.005.000 / 1005000 / 1 005 000; từ chối chữ, dấu phẩy, số lẻ.
   function moneyOf(id, label, allowNeg) {
@@ -144,6 +157,7 @@
         ${runs.map(x => `<div class="li"><span>Bảng lương ${vnMonth(x.month)} ${esc(x.code)}<div class="hint">Lập bởi ${esc(sname(x.createdBy))}</div></span><span class="amt">${vndH(x.total)} <a class="btn sm" href="#luong">Xem</a></span></div>`).join("")}
         ${n ? "" : `<div class="hint">Không có việc chờ duyệt.</div>`}</div>${pend.filter(x => x.createdBy !== a.id).length > 1 ? `<button class="btn sm" style="margin-top:8px" data-approveall="1">Duyệt tất cả ${pend.filter(x => x.createdBy !== a.id).length} chứng từ chi (${short(pend.filter(x => x.createdBy !== a.id).reduce((s, x) => s + x.amount, 0))})</button>` : ""}</div>`);
     }
+    if (["ADMIN", "MANAGER"].includes(r) && (!S.s.lastBackupAt || HP.daysBetween(S.s.lastBackupAt, t) > 7)) cards.unshift(`<div class="card warnbox"><b>Chưa sao lưu dữ liệu${S.s.lastBackupAt ? " từ " + vnDate(S.s.lastBackupAt) : ""}.</b> Bản thử lưu trong trình duyệt — <a href="#cai-dat">tải bản sao lưu</a> để không mất sổ sách.</div>`);
     if (r === "MANAGER") {
       const pm = prevMonth(monthOf(t)), ap = S.s.requests.filter(x => x.status === "APPROVED" && !(x.source && x.source.type === "BATCH")), el = S.s.commissions.filter(e => e.state === "ELIGIBLE" && !e.batchId).length, pnd = S.s.commissions.filter(e => e.state === "PENDING" && e.period < monthOf(t)).length, pr = S.s.requests.filter(x => x.status === "PENDING").length, draft = S.s.payrollRuns.filter(x => x.status === "DRAFT").length;
       cards.push(`<div class="card"><h3>Việc kế toán</h3><div class="list">
@@ -609,9 +623,14 @@
     <div class="card"><h3>${K.find(x => x[0] === k)[1]} — gần đây</h3><div class="list">${rows.map(([l, at]) => `<div class="li"><span>${esc(l)}</span><span class="amt"><button class="btn sm pri" ${at}>Xem bản in</button></span></div>`).join("") || `<div class="hint">Chưa có giấy tờ loại này.</div>`}</div></div></div>`;
   }
   // =================== CÀI ĐẶT ===================
+  function backupCard() {
+    if (!["ADMIN", "MANAGER"].includes(role())) return "";
+    const last = S.s.lastBackupAt, size = (() => { try { return Math.round(JSON.stringify(S.s).length / 1024); } catch (e) { return 0; } })();
+    return `<div class="card" style="margin-bottom:14px" id="sec-backup"><h3>Sao lưu dữ liệu ${last ? pill(HP.daysBetween(last, S.today) > 7 ? "neg" : "pos", "Gần nhất " + vnDate(last)) : pill("neg", "Chưa sao lưu")}</h3><p class="hint">Bản thử lưu dữ liệu trong trình duyệt này (${size} KB). Xoá lịch sử duyệt web là mất dữ liệu — tải bản sao lưu hằng ngày. Bản chạy thật sẽ lưu trên máy chủ.</p><div class="row"><button class="btn pri" data-backup="1">Tải bản sao lưu (.json)</button><label class="btn" for="restoreFile" style="cursor:pointer">Khôi phục từ file…</label><input id="restoreFile" type="file" accept="application/json,.json" class="sr-only"></div></div>`;
+  }
   function viewSettings() {
     const c = S.cfg, n = c.network, can = S.can("settings"), dis = can ? "" : "disabled";
-    return `<div class="head"><h2>Cài đặt & danh mục</h2><p>Mọi thay đổi tỷ lệ tăng số phiên bản và ghi nhật ký trước/sau. Chỉ Ban giám đốc sửa được.</p></div>
+    return `<div class="head"><h2>Cài đặt & danh mục</h2><p>Mọi thay đổi tỷ lệ tăng số phiên bản và ghi nhật ký trước/sau. Chỉ Ban giám đốc sửa được.</p></div>${backupCard()}
     <div class="grid g2"><div class="card"><h3>Tỷ lệ chương trình · phiên bản ${c.version}</h3><form id="rateForm" class="stack"><div class="row"><div class="fld"><label for="stRef">Hoa hồng giới thiệu gói (đ/hợp đồng)</label><input id="stRef" inputmode="numeric" value="${c.referralFlat}" ${dis}></div><div class="fld"><label for="stAdd">Thù lao ngoài gói (%)</label><input id="stAdd" type="number" min="10" max="15" step="0.5" value="${c.addonBps / 100}" ${dis}></div></div>
       <div class="row"><div class="fld"><label for="stCon">Tư vấn (% thực thu)</label><input id="stCon" type="number" step="0.5" value="${c.staff.consultBps / 100}" ${dis}></div><div class="fld"><label for="stDoc">Bác sĩ (% thực thu)</label><input id="stDoc" type="number" step="0.5" value="${c.staff.doctorBps / 100}" ${dis}></div><div class="fld"><label for="stTech">KTV (đ/buổi)</label><input id="stTech" inputmode="numeric" value="${c.staff.techFee}" ${dis}></div><div class="fld"><label for="stPkg">Nhân viên bán gói (đ/gói)</label><input id="stPkg" inputmode="numeric" value="${c.staff.pkgSaleBonus}" ${dis}><div class="hint">Chờ chủ chốt (E.8), mặc định 0</div></div></div>
       ${can ? `<div class="row"><button class="btn pri" type="submit">Lưu tỷ lệ</button></div>` : `<p class="hint">Chế độ chỉ xem.</p>`}</form></div>
@@ -810,6 +829,7 @@
     if (d.rejectbatch) return act(() => S.rejectBatch(d.rejectbatch), "Đã trả lại lô.");
     if (d.cbcheck) { try { ui.cbCount = val("#cbCount"); const n = moneyOf("#cbCount", "Tiền mặt đếm", false); ui.cbDiff = n - (S.cashbook(ui.cbDate || S.today).by.CASH || 0); render(); } catch (e) { toast(e.message, true); } return; }
     if (d.cbcsv) { const cb = S.cashbook(d.cbcsv), q = x => `"${String(x).replace(/"/g, '""')}"`; const csv = "\ufeffMã,Loại,Khách/người nhận,Hình thức,Người ghi,Số tiền\n" + cb.rows.map(r => [r.code, r.kind, r.who, METHOD[r.method] || r.method, sname(r.by), r.amount].map(q).join(",")).join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `so-quy-${d.cbcsv}.csv`; document.body.appendChild(a); a.click(); a.remove(); return; }
+    if (d.backup) { S.s.lastBackupAt = S.today; S.log("SAO LƯU", "Tải bản sao lưu dữ liệu"); save(); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(S.s)], { type: "application/json" })); a.download = `trungtamdalieu-saoluu-${S.today}.json`; document.body.appendChild(a); a.click(); a.remove(); render(); toast("Đã tải bản sao lưu."); return; }
     if (d.approvereq) return act(() => S.approveRequest(d.approvereq), "Đã duyệt chi.");
     if (d.approveall) { const L = S.s.requests.filter(x => x.status === "PENDING" && x.createdBy !== S.actor().id); if (typeof confirm === "function" && !confirm(`Duyệt ${L.length} chứng từ, tổng ${vnd(L.reduce((s, x) => s + x.amount, 0))}đ?`)) return; return act(() => L.forEach(x => S.approveRequest(x.id)), `Đã duyệt ${L.length} chứng từ.`); }
     if (d.apptmove) { ui.apptMove = ui.apptMove === d.apptmove ? null : d.apptmove; render(); return; }
@@ -855,6 +875,7 @@
     if (t.id === "actor") { S.s.actorId = t.value; save(); ui.showAll = false; ui.confirmReset = false; if (!allowed(location.hash.slice(1))) history.replaceState(null, "", "#" + defRoute()); render(); }
     if (t.id === "today" && t.value) { if (role() !== "ADMIN") { render(); return toast("Chỉ Ban giám đốc đổi ngày (bản thử).", true); } S.s.today = t.value; save(); render(); toast("Ngày hệ thống: " + vnDate(t.value)); }
     if (t.id === "pp") { ui.portalPartner = t.value; ui.ptab = "home"; render(); }
+    if (t.id === "restoreFile" && t.files && t.files[0]) { const f = t.files[0]; if (f.size > 20e6) return toast("File quá lớn.", true); const rd = new FileReader(); rd.onload = () => { try { const n = JSON.parse(String(rd.result)); const need = ["customers", "treatments", "payments", "contracts", "wallet", "commissions", "requests", "audit"]; if (!n || typeof n !== "object" || n.v !== 4 || !need.every(k => Array.isArray(n[k])) || !n.settings) throw new Error("File không phải bản sao lưu của Trungtamdalieu."); if (typeof confirm === "function" && !confirm(`Khôi phục bản sao lưu ngày ${n.lastBackupAt || "?"} (${n.customers.length} khách)? Dữ liệu hiện tại sẽ bị thay thế.`)) return; const me = S.s.actorId; S.s = n; if (!S.s.incidents) S.s.incidents = []; S.s.actorId = me; S.log("KHÔI PHỤC DỮ LIỆU", `Từ file ${f.name.slice(0, 60)}`); save(); render(); toast("Đã khôi phục dữ liệu."); } catch (e) { toast(e.message || "File không hợp lệ.", true); } }; rd.readAsText(f); return; }
     if (t.id === "fm") { ui.fmonth = t.value; ui.forceClose = null; render(); }
     if (t.id === "cbDate" && t.value) { ui.cbDate = t.value; ui.cbDiff = null; render(); }
     if (t.id === "apView") { ui.apptDate = t.value; render(); }
