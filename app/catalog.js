@@ -29,8 +29,32 @@
   const SOURCES = { WALK_IN: "Tự đến", PARTNER: "Đối tác giới thiệu", REFERRAL: "Khách cũ giới thiệu", FACEBOOK: "Facebook", ZALO: "Zalo", TIKTOK: "TikTok", HOTLINE: "Hotline", MARKETING: "Quảng cáo khác" };
   const SKIN = ["Da dầu", "Da khô", "Da hỗn hợp", "Da thường", "Da nhạy cảm"];
   const CONCERNS = ["Mụn", "Nám", "Tàn nhang", "Sẹo rỗ", "Lỗ chân lông to", "Lão hoá", "Viêm da", "Triệt lông", "Khác"];
+  // Thông tin chuyên môn theo dịch vụ (BẢN MẪU — Giám đốc chuyên môn duyệt lại trước khi dùng thật):
+  //   doctor: cần bác sĩ khám & chỉ định trước khi làm · performer "DOCTOR": chỉ bác sĩ thực hiện (KTV không ghi buổi)
+  //   lot: bắt buộc ghi số lô vật tư · contra: chống chỉ định cần cảnh báo · interval: số ngày giữa 2 buổi · after: ngày gọi hỏi thăm
+  const CONTRA = { LIDO: "Dị ứng thuốc tê (lidocaine)", LATEX: "Dị ứng latex", ISO: "Đang/mới dùng isotretinoin (dưới 6 tháng)", PREG: "Đang mang thai / cho con bú", KELOID: "Cơ địa sẹo lồi", HERPES: "Herpes đang hoạt động", ANTICOAG: "Đang dùng thuốc chống đông", INFECT: "Nhiễm trùng vùng điều trị", SUN: "Cháy nắng / phơi nắng gần đây", AUTOIMM: "Bệnh tự miễn" };
+  const K = { peel: { doctor: true, contra: ["ISO", "PREG", "HERPES", "SUN", "INFECT"], interval: 14, after: [1, 3], consent: "PEEL" },
+    laser: { doctor: true, contra: ["ISO", "PREG", "SUN", "INFECT"], interval: 28, after: [1, 3], consent: "LASER" },
+    co2: { doctor: true, contra: ["ISO", "PREG", "KELOID", "HERPES", "SUN", "INFECT"], interval: 35, after: [1, 3, 7], consent: "LASER" },
+    needle: { doctor: true, contra: ["ISO", "KELOID", "INFECT", "ANTICOAG"], interval: 28, after: [1, 3], consent: "LASER" },
+    hifu: { doctor: true, contra: ["PREG", "INFECT", "AUTOIMM"], interval: 180, after: [1, 7], consent: "HIFU" },
+    rf: { doctor: true, contra: ["PREG", "INFECT"], interval: 28, after: [1], consent: "HIFU" },
+    inject: { doctor: true, performer: "DOCTOR", lot: true, contra: ["LIDO", "PREG", "ANTICOAG", "INFECT", "AUTOIMM"], interval: 120, after: [1, 3, 7], consent: "INJECT" },
+    thread: { doctor: true, performer: "DOCTOR", lot: true, contra: ["LIDO", "PREG", "ANTICOAG", "INFECT", "KELOID"], interval: 180, after: [1, 3, 7], consent: "INJECT" },
+    minor: { doctor: true, performer: "DOCTOR", contra: ["LIDO", "ANTICOAG", "INFECT", "KELOID"], interval: 14, after: [1, 7], consent: "INJECT" },
+    hair: { doctor: true, contra: ["PREG", "SUN", "INFECT"], interval: 35, after: [1], consent: "LASER" },
+    rx: { doctor: true, interval: 14, after: [7] }, care: { interval: 7 }, basic: {} };
+  const CLIN = { "D01-01": K.basic, "D01-02": K.care, "D01-03": K.peel, "D01-04": K.laser, "D01-05": { ...K.peel, interval: 7 },
+    "D02-01": K.laser, "D02-02": K.peel, "D02-03": K.laser, "D02-04": K.care,
+    "D03-01": K.co2, "D03-02": K.needle, "D03-03": K.minor, "D03-04": K.co2,
+    "D04-01": K.hifu, "D04-02": K.rf, "D04-03": { ...K.inject, contra: ["PREG", "AUTOIMM", "INFECT"] }, "D04-04": K.inject, "D04-05": K.thread,
+    "D05-01": K.care, "D05-02": K.care, "D05-03": K.needle, "D05-04": K.care,
+    "D06-01": K.hair, "D06-02": K.hair, "D06-03": K.hair,
+    "D07-01": K.basic, "D07-02": K.rx, "D07-03": K.rx, "D07-04": K.minor,
+    "A01": { ...K.inject, contra: ["PREG", "AUTOIMM", "INFECT"] }, "A02": { ...K.inject, contra: ["PREG", "AUTOIMM", "INFECT"] }, "A03": K.hifu, "A04": K.inject, "A05": K.thread, "A06": K.thread, "A07": K.minor };
+  const clin = code => CLIN[code] || {};
   function itemByCode(c) { return BUNDLES.find(b => b.code === c) || SERVICES.find(s => s.code === c) || null; }
-  const API = { BUNDLES, GROUPS, SERVICES, SOURCES, SKIN, CONCERNS, itemByCode };
+  const API = { BUNDLES, GROUPS, SERVICES, SOURCES, SKIN, CONCERNS, CONTRA, CLIN, clin, itemByCode };
   root.CATALOG = API;
   if (typeof module !== "undefined") module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

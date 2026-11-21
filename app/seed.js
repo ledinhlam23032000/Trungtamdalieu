@@ -19,7 +19,7 @@
     const day = (m, max) => `${m}-${String(1 + Math.floor(rnd() * max)).padStart(2, "0")}`;
     const P = {};
     // Nhóm sáng lập — 2 cấp: Long → Trang → Hạnh
-    const founder = (key, nm, d, ref, use) => ev(d, () => { const c = as("hoa", () => st.sell({ buyerName: nm, last5: l5(), referralCode: ref ? P[ref].code : "", pin: "246810", firstPayment: HP.PKG_PRICE })); P[key] = st.partner(c.ownerPartnerId); if (key === "hanh") P.hanh.code = "HP-2K7Q"; if (use) redeemSeed(c, use); });
+    const founder = (key, nm, d, ref, use) => ev(d, () => { const c = as("hoa", () => st.sell({ buyerName: nm, last5: l5(), referralCode: ref ? P[ref].code : "", pin: "246810", firstPayment: HP.PKG_PRICE, consent: true })); P[key] = st.partner(c.ownerPartnerId); if (key === "hanh") P.hanh.code = "HP-2K7Q"; if (use) redeemSeed(c, use); });
     function redeemSeed(c, code) { const b = CAT.itemByCode(code); s.wallet.push({ id: HP.uid("vi"), contractId: c.id, kind: "REDEEM", amount: -b.value, label: b.name, itemCode: b.code, at: s.today, by: "hoa" }); if (st.balance(c.id) === 0) { c.status = "CONSUMED"; c.endedAt = s.today; } }
     founder("long", "Vũ Hoàng Long", "2026-05-20", null, "A04");
     founder("binh", "Trần Văn Bình", "2026-05-22", null, "A05");
@@ -27,7 +27,7 @@
     founder("trang", "Phạm Thu Trang", "2026-05-28", "long", "A03");
     founder("hanh", "Nguyễn Thị Hạnh", "2026-08-10", "trang", null);
     const plan = [["trang", [8, 10, 11, 9, 9, 6]], ["binh", [5, 8, 9, 9, 9, 6]], ["quan", [1, 1, 2, 1, 1, 1]], ["long", [3, 4, 3, 3, 3, 3]], ["hanh", [0, 0, 1, 1, 1, 1]]];
-    plan.forEach(([key, counts]) => counts.forEach((n, mi) => { for (let k = 0; k < n; k++) { const d = day(months[mi], mi === 5 ? 19 : 27); if (key === "hanh" && d < "2026-08-11") continue; ev(d, () => { const c = as(pick(HP.SELLERS), () => st.sell({ buyerName: name(), last5: l5(), referralCode: P[key].code, pin: "246810", firstPayment: HP.PKG_PRICE })); const u = rnd(); if (u < .35) redeemSeed(c, "A04"); else if (u < .5) redeemSeed(c, "A07"); }); } }));
+    plan.forEach(([key, counts]) => counts.forEach((n, mi) => { for (let k = 0; k < n; k++) { const d = day(months[mi], mi === 5 ? 19 : 27); if (key === "hanh" && d < "2026-08-11") continue; ev(d, () => { const c = as(pick(HP.SELLERS), () => st.sell({ buyerName: name(), last5: l5(), referralCode: P[key].code, pin: "246810", firstPayment: HP.PKG_PRICE, consent: true })); const u = rnd(); if (u < .35) redeemSeed(c, "A04"); else if (u < .5) redeemSeed(c, "A07"); }); } }));
     // Khách da liễu tự đến / do đối tác giới thiệu: hồ sơ điều trị, buổi, thanh toán
     months.forEach((m, mi) => { const n = 20 + mi * 3; for (let k = 0; k < n; k++) { const d = day(m, mi === 5 ? 19 : 27); ev(d, () => {
       const refKey = rnd() < .3 ? pick(["hanh", "trang", "binh"].filter(k => P[k])) : null;
@@ -35,14 +35,15 @@
       const cons = pick(["ha", "maianh", "huy", "bao", "linh"]), doc = pick(["bsminh", "bsthu"]);
       const t = as(cons, () => st.openTreatment(cus.id, { doctorId: doc }));
       const svcs = [pick(CAT.SERVICES)]; if (rnd() < .3) svcs.push(pick(CAT.SERVICES));
-      svcs.forEach(sv => as(cons, () => st.addLine(t.id, { code: sv.code, qty: 1, discount: rnd() < .25 ? Math.round(sv.price * 0.1 / 1000) * 1000 : 0 })));
+      svcs.forEach(sv => { const l = as(cons, () => st.addLine(t.id, { code: sv.code, qty: 1, discount: rnd() < .25 ? Math.round(sv.price * 0.1 / 1000) * 1000 : 0, discountReason: "Chương trình tháng" })); if (l.rx === "CHO_BS") as(doc, () => st.approveLine(t.id, l.id, { ok: true })); });
+      if (t.lines.some(l => CAT.clin(l.code).doctor)) as("hoa", () => st.signConsent(t.id));
       const total = st.sumTreatment(t).total; const payAmt = rnd() < .8 ? total : Math.round(total * 0.5 / 1000) * 1000;
       as("hoa", () => st.pay(t.id, payAmt, { method: pick(["CASH", "TRANSFER", "CARD"]) }));
-      t.lines.forEach(l => { const tech = pick(["nga", "tam"]); for (let b = 0; b < Math.min(l.sessionsTotal, 1 + Math.floor(rnd() * l.sessionsTotal)); b++) { const sd = HP.addDays(d, b * 7); if (sd < today) ev(sd, () => as(tech, () => { try { st.addSession(t.id, l.id, {}); } catch (e) { } })); } });
+      t.lines.forEach(l => { const k = CAT.clin(l.code), who = k.performer === "DOCTOR" ? doc : pick(["nga", "tam"]), gap = Math.max(7, Math.min(k.interval || 7, 30)); for (let b = 0; b < Math.min(l.sessionsTotal, 1 + Math.floor(rnd() * l.sessionsTotal)); b++) { const sd = HP.addDays(d, b * gap); if (sd < today) ev(sd, () => as(who, () => { try { st.addSession(t.id, l.id, { lot: k.lot ? "LOT" + (2600 + Math.floor(rnd() * 90)) : "", note: b === 0 ? "Da đáp ứng tốt" : "" }); } catch (e) { } })); } });
     }); } });
     // Chi phí vận hành hằng tháng + lương + hoa hồng + chốt sổ
     months.slice(0, 5).forEach(m => {
-      ev(m + "-03", () => { [["MAT_BANG", "Chủ nhà — tiền thuê tháng " + m, 60000000], ["VAT_TU", "Công ty vật tư y tế Á Châu", 30000000 + Math.round(rnd() * 15) * 1000000], ["MARKETING", "Quảng cáo Facebook/TikTok", 25000000]].forEach(([cat, payee, amt]) => { const rq = as("bich", () => st.createRequest({ category: cat, payee, amount: amt, note: "Chi định kỳ" })); as("lam", () => st.approveRequest(rq.id)); as("bich", () => st.payRequest(rq.id)); }); });
+      ev(m + "-03", () => { [["MAT_BANG", "Chủ nhà — tiền thuê tháng " + m, 60000000], ["VAT_TU", "Công ty vật tư y tế Á Châu", 30000000 + Math.round(rnd() * 15) * 1000000], ["MARKETING", "Quảng cáo Facebook/TikTok", 25000000]].forEach(([cat, payee, amt]) => { const rq = as("hoa", () => st.createRequest({ category: cat, payee, amount: amt, note: "Chi định kỳ" })); as("lam", () => st.approveRequest(rq.id)); as("bich", () => st.payRequest(rq.id)); }); });
     });
     ["2026-07", "2026-08", "2026-09", "2026-10"].forEach(m => {
       const pm = HP.prevMonth(m);
@@ -53,7 +54,7 @@
     ev("2026-11-04", () => as("bich", () => st.reconcile("2026-10")));
     ev("2026-11-06", () => { const run = as("bich", () => st.createPayrollRun("2026-10")); /* chờ Ban giám đốc duyệt */ });
     ev("2026-11-10", () => { const a = as("hoa", () => st.createRequest({ category: "VAT_TU", payee: "Công ty dược mỹ phẩm Minh Long", amount: 18500000, note: "Nhập serum, kem chống nắng" })); });
-    ev("2026-11-14", () => { const a = as("bich", () => st.createRequest({ category: "MARKETING", payee: "Quay dựng video tháng 11", amount: 12000000, note: "Theo kế hoạch truyền thông" })); as("quyen", () => st.approveRequest(a.id)); });
+    ev("2026-11-14", () => { const a = as("hoa", () => st.createRequest({ category: "MARKETING", payee: "Quay dựng video tháng 11", amount: 12000000, note: "Theo kế hoạch truyền thông" })); as("quyen", () => st.approveRequest(a.id)); });
     // Phiếu chọn đang chờ bác sĩ + lịch hẹn hôm nay / ngày mai
     ev("2026-11-18", () => { const k = s.contracts.find(c => c.ownerPartnerId === P.hanh.id); as("hoa", () => st.saveSelection(k.id, { bundle: "A07", options: [], extras: [{ code: "D01-03", qty: 1 }] })); });
     events.sort((a, b) => a.date.localeCompare(b.date) || a.k - b.k);
