@@ -4,7 +4,7 @@
   --a950:#052e25;--a900:#073b30;--a800:#0b4d3e;--a700:#0f6650;--a600:#13805f;--a100:#dcf2e9;--a50:#f0faf6;
   --g500:#c9a24a;--g300:#e6cf8f;--g100:#f8efd6;
   --bg:#f2f6f4;--card:#ffffff;--ink:#0f1a17;--mute:#5b6b66;--line:#dfe8e4;--soft:#edf3f0;
-  --pos:#15803d;--pend:#b45309;--neg:#b91c1c;--posbg:#e7f6ec;--pendbg:#fdf3e6;--negbg:#fdecec;
+  --pos:#166534;--pend:#9a4a07;--neg:#b91c1c;--posbg:#e7f6ec;--pendbg:#fdf3e6;--negbg:#fdecec;
   --accent:var(--a600);--on-accent:#fff;--side:#062f26;
   --f-ui:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',sans-serif;--f-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
 }
@@ -201,3 +201,11 @@ details[open]>.sumh::before{transform:rotate(45deg)}
   @page{size:A4;margin:16mm}
 }
 .phone.bare{min-height:calc(100dvh - 120px);display:flex;flex-direction:column}.phone.bare .ptabs{margin-top:auto}
+/* vòng 3 */
+.btn.big{min-height:44px;padding:10px 16px;font-size:15px;flex:1 1 140px}
+.phone .hint{font-size:13px}.phone .li{font-size:14px}.phone .psec h4{font-size:12px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.pri{background:#1d6f55;border-color:#1d6f55}}
+:root[data-theme="dark"] .btn.pri{background:#1d6f55;border-color:#1d6f55}
+.skip{position:absolute;left:-9999px;top:0;z-index:99;background:var(--card);color:var(--ink);padding:8px 12px;border-radius:8px}.skip:focus{left:12px;top:12px}
+.sec-t{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
+.wallet .wl,.wallet .wf2,.wallet .wv small{opacity:1!important}.wallet .bd{font-size:11px}

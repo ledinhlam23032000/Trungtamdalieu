@@ -1,3 +1,5 @@
+<!doctype html>
+<html lang="vi">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Trungtamdalieu</title>
@@ -6,6 +8,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<a class="skip" href="#app" data-goto="app">Bỏ qua tới nội dung</a>
 <div class="shell">
   <header class="top">
     <div class="brand"><span>Bệnh viện Đa khoa Hồng Phúc</span><b>Trung tâm Da liễu</b></div>
@@ -18,7 +21,7 @@
   <nav class="side" id="side" aria-label="Điều hướng"></nav>
   <main><div class="wrap" id="app"></div></main>
 </div>
-<div id="toast" class="toast" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <div id="tip" class="tip" hidden></div>
 <div id="modal" class="modal" hidden></div>
 <script src="catalog.js"></script>
